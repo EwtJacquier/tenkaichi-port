@@ -42,12 +42,13 @@ browser tab, and to fight with our friends again.
 - **The whole game**, translated to native code: the program and its 11 code overlays, every
   mode, fighter, map, music and voice.
 - **Up to 4x internal resolution** (1920x1088), natively and in the browser.
-- **HD textures**: the interface at 4x: the character select's arts and faces, the menus, the map
-  select, the loading screens, the battle's HUD, the result screens and the game's font, each one
-  checked against its original. Most were upscaled with the
-  [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) anime model, some redrawn with OpenAI's
-  image models, and the words (menu titles, counters, WIN / LOSE, the buttons) drawn again with a
-  font in the original's colors, places and spacing. It comes as a separate download and never
+- **HD textures**: the interface at 4x (the character select's arts and faces, the menus, the map
+  select, the loading screens, the battle's HUD, the result screens and the game's font) and some
+  of the fighters' textures. The character select's arts and the art where a plain upscale fell
+  short were redrawn with OpenAI's image models; the words (menu titles, counters, WIN / LOSE, the
+  buttons) and the game's font drawn again with a font, in the original's colors, places and
+  spacing; the rest upscaled with the [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) anime
+  model. Each one was checked against its original. It comes as a separate download and never
   changes the game's files: turn it off and on in the settings menu.
 - **A browser version**: the game in a tab, with a settings menu (Esc): fullscreen, volume,
   keyboard keys, gamepad buttons and which stick is the PSP's analog stick, internal resolution, HD
@@ -124,7 +125,7 @@ battles' lockstep protocol, the renderer, every mod.
 | **FFmpeg** (PPSSPP's builds) | ATRAC3+ music and voices |
 | **LiveKit** (WebRTC) | online play: the game's Ad Hoc messages between players |
 | **Ghidra** (optional) | the analysis that found every function (already done: `re/export/`) |
-| **Real-ESRGAN**, **OpenAI image models**, fonts | how the HD textures were made |
+| **Real-ESRGAN**, **OpenAI image models**, fonts | how the HD textures were made (`realesrgan-x4plus-anime` at 4x; `gpt-image` redraws; words and letters drawn with the Ubuntu font) |
 
 ## What you need
 
@@ -267,15 +268,22 @@ python3 tools/textures.py status
 
 It has the interface, where the PSP's low resolution shows the most: the character select's arts
 (the transformations too) and faces, the menus, the map select, the loading screens, the battle's
-HUD, the result screens, the Multiplayer rooms and the game's font. The fighters and the maps keep
-the game's own textures for now. Each texture is drawn at 4x and compared with its original: most
-upscaled with Real-ESRGAN's anime model (`realesrgan-x4plus-anime`), some redrawn with OpenAI's
-image models and fitted back onto the original's place and outline; the words in the pictures
-(titles, counters, WIN / LOSE / PERFECT!, the OK buttons) are drawn again with a font, in the
-original's colors, places and spacing (an AI upscale blurs small letters); the game's font, one
-picture per character, is redrawn letter by letter at each letter's own width. The pack only
-**adds** files in `build/textures`: the game looks each texture up while it runs and draws the HD
-version in its place, so your ISO and the game's files never change.
+HUD, the result screens, the Multiplayer rooms and the game's font; and some of the fighters'
+textures. The maps keep the game's own textures for now. Its 615 textures were remade at 4x and
+compared with their originals one by one:
+
+- 126 (the character select's 70 arts, its face sheets, menu, title and HUD art where the plain
+  upscale fell short) were redrawn with OpenAI's image models (`gpt-image`), fitted back onto the
+  original's place and outline; the face sheets laid back on the game's grid, cell by cell;
+- 200 are words and letters drawn again with a font (the Ubuntu font), in the original's colors,
+  places and spacing, since an AI upscale blurs small letters: the game's font, one picture per
+  character, redrawn letter by letter at each letter's own width, and the words baked into the
+  interface (titles, counters, WIN / LOSE / PERFECT!, the OK buttons);
+- 173 come from Real-ESRGAN's anime model (`realesrgan-x4plus-anime`), the fighters' among them;
+- 116 plain ones (bars, frames, small pieces of the HUD) are a sharp resize.
+
+The pack only **adds** files in `build/textures`: the game looks each texture up while it runs and
+draws the HD version in its place, so your ISO and the game's files never change.
 
 **Going back to the originals** (the rollback):
 
