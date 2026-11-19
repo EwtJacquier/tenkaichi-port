@@ -1,0 +1,15 @@
+# Guest functions replaced by hand-written C in mods/*.c (the original stays callable as f_X_orig).
+088174ac  # mods/netdelay.c: the battle input rings looked up DELAY frames back
+088174fc  # mods/netdelay.c: records with no frame not kept in the rings
+089c3294  # mods/boot.c: the boot scene skipped, straight to the title
+089c33e0  # mods/boot.c: runs the current scene every frame
+08a3b278  # mods/clock.c: the clock question answered at once
+08a3b2c4  # mods/clock.c: ... with No
+ov12:08a827cc  # mods/menus.c: the title menu answered at once
+0881a1f0  # mods/menupad.c: the stick as the d-pad in menus
+ov20:08a8bc08  # mods/menus.c: the Option menu's cursor round its first 3 items
+ov20:08a8c338  # mods/menus.c: ... the other items never drawn
+ov16:08a83508  # mods/menus.c: the main menu made with Free Battle in its first row
+ov16:08a843c8  # mods/menus.c: ... its cursor round Free Battle and Multiplayer only
+08a0ab08  # mods/charsel.c: the character select's Custom step passed by with Default
+ov55:08ab0b30  # mods/room.c: the Create New Room panel, kept to be answered (Free Battle, no custom)

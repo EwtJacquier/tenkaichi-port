@@ -1,0 +1,1203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dragon Ball Z: Tenkaichi Tag Team</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preload" as="image" href="art/scene.png">
+<script>
+  // Phones and tablets get a note instead of the game, which needs a computer (a keyboard or a
+  // gamepad, and the memory it takes): nothing of the game is downloaded there. ?mobile=1 shows
+  // the note on a computer, ?desktop=1 skips it.
+  (() => {
+    const q = new URLSearchParams(location.search), ua = navigator.userAgent;
+    const touch = /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle|Opera Mini|IEMobile/i.test(ua)
+      || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua))  // iPads say they are Macs
+      || (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches);
+    window.dbzMobile = q.has('mobile') || (touch && !q.has('desktop'));
+    if (window.dbzMobile) document.documentElement.classList.add('mobile');
+  })();
+</script>
+<style>
+  /* Tenkaichi Tag Team's own look, as its menus draw it: a bright sky, deep-blue bars fading to
+     the right with white italic lettering edged in navy, the chosen bar white to gold with its
+     words in red-orange, help boxes of see-through blue with a pale edge, headings on a blue band
+     beside an orange four-star ball; behind the sign-in, the disc's own key art (PIC1.PNG, from
+     the player's ISO: serve_web.py /art/), like the game's title screen. */
+  :root {
+    color-scheme: dark;
+    --bg: #000; --text: #fff; --muted: #d6ecff;
+    --navy: #06205e; --blue-0: #0a3696; --blue-1: #0f4fc4; --blue-2: #2a7be8; --blue-3: #5fb0ff; --edge: #9fd8ff; --edge-hi: #e4f6ff;
+    --gold-1: #fffef2; --gold-2: #fff29a; --gold-3: #ffd23a; --flame: #ff4a10; --flame-dark: #b52a00;
+    --ink: #fff; --ink-soft: #cfe6ff;
+    --face: "Arial Black", "Segoe UI Black", "Helvetica Neue", Arial, "Liberation Sans", sans-serif;
+    --title: italic 900 15px/1.1 var(--face);
+    --body: "Segoe UI", system-ui, Verdana, Tahoma, sans-serif;
+    /* lettering edged in navy (the game's), or in white (on the gold bar) */
+    --outline: -1px -1px 0 var(--navy), 1px -1px 0 var(--navy), -1px 1px 0 var(--navy), 1px 1px 0 var(--navy), 0 2px 3px rgba(0,20,70,.55);
+    --outline-white: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 6px rgba(255,255,255,.8);
+    /* a menu bar: deep blue fading to the right, a pale line under it; the chosen one: white to gold */
+    --bar: linear-gradient(90deg, var(--blue-0), var(--blue-1) 45%, rgba(42,123,232,.55) 85%, rgba(42,123,232,.15));
+    --bar-on: linear-gradient(90deg, var(--gold-1), var(--gold-2) 45%, var(--gold-3) 80%, rgba(255,210,58,.35));
+    /* the four-star ball */
+    --dball: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cdefs%3E%3CradialGradient id='g' cx='38%25' cy='32%25' r='72%25'%3E%3Cstop offset='0' stop-color='%23fff8d0'/%3E%3Cstop offset='.22' stop-color='%23ffc63c'/%3E%3Cstop offset='.7' stop-color='%23ff8a00'/%3E%3Cstop offset='1' stop-color='%23c24a00'/%3E%3C/radialGradient%3E%3Cpath id='s' d='M0-4.2 1.25-1.3 4.2-1.3 1.85.55 2.6 3.7 0 1.9-2.6 3.7-1.85.55-4.2-1.3-1.25-1.3Z' fill='%23e3261b'/%3E%3C/defs%3E%3Ccircle cx='20' cy='20' r='19' fill='url(%23g)' stroke='%23a33d00'/%3E%3Cuse href='%23s' x='14.5' y='15'/%3E%3Cuse href='%23s' x='25.5' y='14'/%3E%3Cuse href='%23s' x='14' y='26'/%3E%3Cuse href='%23s' x='25.5' y='25.5'/%3E%3Cellipse cx='14' cy='10.5' rx='6.5' ry='3.6' fill='%23fff' opacity='.55'/%3E%3C/svg%3E");
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; overflow: hidden; }
+  /* The game fills the window at the PSP's 480:272 aspect ratio. */
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  #canvas { display: block; width: min(100vw, calc(100vh * 480 / 272)); aspect-ratio: 480 / 272; background: #000; outline: none; }
+  #picker { position: fixed; inset: 0; display: none; place-items: center; text-align: center; padding: 16px; }
+  #picker .win { width: min(440px, 100%); }
+  #picker label.go { display: inline-block; margin-top: 14px; cursor: pointer; }
+  #picker input { display: none; }
+  #status { position: fixed; left: 0; right: 0; bottom: 12px; text-align: center; color: var(--muted); pointer-events: none;
+            font: italic 800 14px var(--face); text-shadow: var(--outline); transition: opacity .6s; }
+  #crash { position: fixed; inset: auto 16px 16px 16px; display: none; max-height: 45vh; overflow: auto; padding: 12px 14px;
+           background: rgba(6, 20, 60, .95); border: 2px solid #ff6a4a; border-radius: 10px; color: var(--text);
+           font: 12px/1.45 ui-monospace, monospace; white-space: pre-wrap; user-select: text; }
+  #crash b { color: #ff8a6a; font: 600 14px system-ui, sans-serif; }
+
+  /* ---- The two corner buttons, top right: settings (a blue orb) and fullscreen (the four-star
+     ball's orange); gone in fullscreen (Esc, or the gamepad's Home, opens the settings) */
+  .corner { all: unset; position: fixed; right: 12px; z-index: 1; width: 42px; height: 42px; border-radius: 50%; cursor: pointer;
+            display: grid; place-items: center; color: #fff; box-sizing: border-box; border: 2px solid var(--edge-hi);
+            box-shadow: inset 0 -6px 10px rgba(0,0,0,.25), inset 0 6px 8px rgba(255,255,255,.35), 0 0 0 2px var(--navy), 0 4px 12px rgba(0,20,70,.5); }
+  .corner:hover { filter: brightness(1.12); }
+  .corner:active { transform: translateY(2px); }
+  .corner:focus-visible { outline: 3px solid var(--gold-3); outline-offset: 3px; }
+  .corner svg { width: 20px; height: 20px; filter: drop-shadow(0 1px 1px var(--navy)); }
+  #gear { top: 12px; background: radial-gradient(circle at 38% 30%, #bfe6ff, var(--blue-2) 55%, var(--blue-0)); }
+  #full { top: 62px; background: radial-gradient(circle at 38% 30%, #fff1b8, #ffb02a 45%, #ff7a00 75%, #c24a00); }
+  html:fullscreen .corner { display: none; }
+
+  /* ---- Settings: the game's window (.win, below) over the game */
+  #menu { position: fixed; inset: 0; display: none; place-items: center; padding: 16px; z-index: 3;
+          background: rgba(4, 22, 70, .55); font-family: var(--body); color: var(--ink); }
+  #menu.open { display: grid; }
+  #menu .win { width: min(680px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+  #menu .bar h1 { flex: 1; margin: 0; font: var(--title); font-size: 22px; letter-spacing: .5px; }
+  #menu .bar #close { font-size: 12px; padding: 4px 14px; }
+  #menu .body { overflow: auto; padding: 10px 20px 18px; }
+  #menu .hint { margin: 0 0 4px; font-size: 12px; color: var(--ink-soft); }
+  /* section titles: a menu bar */
+  #menu h2 { display: flex; justify-content: space-between; align-items: center; margin: 16px -8px 4px; padding: 4px 14px 5px;
+             font: italic 900 15px/1.2 var(--face); letter-spacing: .5px; color: #fff; text-shadow: var(--outline);
+             border-radius: 0 3px 3px 0; background: var(--bar); box-shadow: inset 0 -2px 0 rgba(228,246,255,.75); }
+  #menu .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 4px;
+               border-top: 1px solid rgba(228,246,255,.18); font-size: 13px; }
+  #menu .row:first-of-type, #menu h2 + .row { border-top: 0; }
+  #menu .row > span { min-width: 0; font-weight: 700; color: var(--ink); text-shadow: 0 1px 2px rgba(0,20,70,.6); }
+  #menu .sub { font-weight: normal; font-size: 11px; color: var(--ink-soft); }
+  #menu .seg { display: flex; flex-wrap: nowrap; flex: none; gap: 4px; justify-content: flex-end; }
+  /* buttons: small blue bars; a switch that is on, or a picked option: the chosen gold bar */
+  #menu button { all: unset; box-sizing: border-box; cursor: pointer; padding: 4px 14px; border-radius: 12px; text-align: center;
+                 white-space: nowrap; font: italic 800 12px var(--face); color: #fff; text-shadow: var(--outline);
+                 background: linear-gradient(#3d8ff0, var(--blue-1) 55%, var(--blue-0)); border: 2px solid var(--edge);
+                 box-shadow: 0 2px 0 var(--navy), 0 3px 6px rgba(0,20,70,.4); }
+  #menu button:hover { border-color: #fff; filter: brightness(1.12); }
+  #menu button:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--navy); }
+  #menu button:focus-visible { outline: 3px solid var(--gold-3); outline-offset: 2px; }
+  #menu button[aria-pressed="true"] { color: var(--flame); text-shadow: var(--outline-white); border-color: #fff;
+    background: linear-gradient(var(--gold-1), var(--gold-2) 50%, var(--gold-3)); box-shadow: 0 0 10px rgba(255,226,90,.7), 0 2px 0 var(--navy); }
+  #menu button.bind { min-width: 150px; padding: 4px 10px; border-radius: 14px; font: 700 13px var(--body); font-style: normal; color: #fff;
+    text-shadow: none; background: var(--navy); border: 2px solid var(--edge); box-shadow: inset 0 1px 4px rgba(0,0,0,.5); }
+  #menu button.bind:hover { border-color: var(--gold-3); filter: none; }
+  #menu button.bind.waiting { background: linear-gradient(var(--gold-1), var(--gold-2)); border-color: #fff; color: var(--flame); }
+  #menu button.link { padding: 0 2px; border: 0; background: none; box-shadow: none; border-radius: 0; font: 600 12px var(--body);
+    color: var(--gold-2); text-decoration: underline; text-shadow: 0 1px 2px var(--navy); }
+  #menu button.link:hover { color: #fff; filter: none; }
+  #menu .vol { display: flex; align-items: center; gap: 6px; }
+  #menu .vol button { padding: 2px 10px; }
+  #menu .vol input[type=range] { width: 150px; accent-color: var(--gold-3); cursor: pointer; }
+  #menu .vol .val { min-width: 40px; text-align: right; font: italic 800 13px var(--face); color: #fff; text-shadow: var(--outline); }
+  #menu .grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; }
+  #menu .grid .row:nth-child(2) { border-top: 0; }
+  @media (max-width: 560px) { #menu .grid { grid-template-columns: 1fr; } #menu .grid .row:nth-child(2) { border-top: 1px solid rgba(228,246,255,.18); } }
+
+  /* ---- Who plays (and the ISO picker): the title screen. One player per window, each with
+     their own save (serve_web.py accounts). Behind it all the disc's key art, soft (serve_web.py
+     /art/; the game's menu sky until then, or without it); the same art sharp on the side. */
+  .sky { overflow: hidden;
+    background: radial-gradient(ellipse 40% 14% at 22% 30%, rgba(255,255,255,.85), transparent 70%),
+      radial-gradient(ellipse 30% 10% at 70% 18%, rgba(255,255,255,.7), transparent 70%),
+      radial-gradient(ellipse 60% 16% at 45% 88%, rgba(255,255,255,.9), transparent 70%),
+      linear-gradient(#1b64d0, #3d8ff0 35%, #8fcbff 70%, #e6f5ff) fixed, #3d8ff0; }
+  .sky::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .9;
+    background: url(art/scene.png) center / cover no-repeat; filter: blur(10px) saturate(1.15) brightness(1.05); transform: scale(1.05); }
+  .sky::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: linear-gradient(90deg, rgba(10,54,150,.45), rgba(10,54,150,.12) 45%, transparent 70%); }
+
+  #login { position: fixed; inset: 0; display: none; z-index: 2; font-family: var(--body); color: var(--ink); overflow: hidden auto; }
+  #login.open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  /* the key art: the right side, full height, fading in from the form's side */
+  #login-art, #preload-art { position: absolute; right: 0; bottom: 0; height: 100%; min-width: 55%; max-width: 62%; object-fit: cover; object-position: 60% 50%;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 26%); mask-image: linear-gradient(to right, transparent, #000 26%);
+    z-index: 1; }
+  #login .side, #preload .side { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; padding: 24px;
+    box-sizing: border-box; min-height: 100vh; justify-content: safe center; gap: 10px; }
+  #login .logo-side, #preload .logo-side { justify-content: flex-start; padding-top: max(24px, 6vh); }
+  #login-art ~ .logo-side .wordmark, #preload-art ~ .logo-side .wordmark { display: none; }  /* only without the key art */
+  .wordmark { font: italic 900 56px/0.95 var(--face); letter-spacing: 1px;
+    color: transparent; background: linear-gradient(#fffbe0, var(--gold-3) 50%, #ff8a00 85%); -webkit-background-clip: text; background-clip: text;
+    filter: drop-shadow(0 0 1px var(--navy)) drop-shadow(0 3px 0 var(--navy)) drop-shadow(0 0 12px rgba(255,255,255,.5));
+    margin: 18px 0 10px; text-align: center; }
+  .wordmark small { display: block; margin-top: 6px; font-size: 20px; color: #fff; -webkit-text-fill-color: #fff; letter-spacing: 6px; }
+
+  /* a window: the game's see-through blue box with a pale edge, its heading on a blue band */
+  .win { position: relative; width: min(420px, 100%); box-sizing: border-box; border-radius: 12px; text-align: left; padding: 0 0 4px;
+    background: linear-gradient(rgba(36,108,226,.93), rgba(16,70,190,.95)); border: 2px solid var(--edge);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.25), inset 0 14px 24px rgba(255,255,255,.12), 0 0 0 2px rgba(6,32,94,.65), 0 14px 36px rgba(0,20,70,.55); }
+  .win .bar { position: relative; margin: 10px 0 4px; padding: 3px 14px 14px 40px; color: #fff; font: var(--title); font-size: 22px;
+    letter-spacing: .5px; text-shadow: var(--outline); display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(90deg, var(--blue-0), var(--blue-1) 55%, rgba(15,79,196,0));
+    box-shadow: inset 0 -2px 0 rgba(228,246,255,.85), inset 0 2px 0 rgba(255,255,255,.15); }
+  /* the window's mark: the four-star ball, half over the edge */
+  .win .bar .ball { position: absolute; left: -12px; top: 50%; width: 46px; height: 46px; margin-top: -30px; flex: none;
+    background: var(--dball) center / contain no-repeat; filter: drop-shadow(0 2px 3px rgba(0,20,70,.55)); }
+  .win .body { position: relative; padding: 12px 18px 16px; color: var(--ink); }
+  .win p { margin: 0 0 10px; font-size: 13px; line-height: 1.45; color: var(--ink); font-weight: 600; text-shadow: 0 1px 2px rgba(0,20,70,.6); }
+  /* tabs: two menu bars, the chosen one gold */
+  .tabs { display: flex; gap: 6px; margin: 0 0 4px; }
+  .tabs button { all: unset; cursor: pointer; flex: 1; padding: 4px 14px 5px; border-radius: 3px; font: italic 900 14px var(--face);
+    color: #fff; text-shadow: var(--outline); background: var(--bar); box-shadow: inset 0 -2px 0 rgba(228,246,255,.6); }
+  .tabs button:not([aria-pressed="true"]):hover { filter: brightness(1.18); }
+  .tabs button[aria-pressed="true"] { color: var(--flame); text-shadow: var(--outline-white); background: var(--bar-on); box-shadow: inset 0 -2px 0 #fff, 0 0 10px rgba(255,226,90,.45); }
+  .tabs button:focus-visible { outline: 3px solid var(--gold-3); outline-offset: 2px; }
+  /* fields: the game's name plate, navy edged in pale blue */
+  .field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; font: italic 800 13px var(--face); color: #fff; text-shadow: var(--outline); }
+  .field small { font: 600 11px var(--body); color: var(--ink-soft); margin-left: 4px; text-shadow: none; }
+  .field input { font: 700 15px Verdana, Tahoma, sans-serif; color: #fff; background: var(--navy); padding: 6px 14px; border-radius: 16px;
+    border: 2px solid var(--edge); box-shadow: inset 0 2px 4px rgba(0,0,0,.5); text-shadow: none; }
+  .field input:hover { border-color: var(--edge-hi); }
+  .field input:focus { outline: 0; border-color: var(--gold-2); box-shadow: 0 0 0 3px rgba(255,226,90,.45), inset 0 2px 4px rgba(0,0,0,.5); }
+  /* the browser's autofill keeps the page's colors */
+  .field input:-webkit-autofill, .field input:autofill { -webkit-text-fill-color: #fff; caret-color: #fff;
+    -webkit-box-shadow: 0 0 0 40px var(--navy) inset; box-shadow: 0 0 0 40px var(--navy) inset; transition: background-color 99999s; }
+  .field input:-webkit-autofill:focus, .field input:autofill:focus { -webkit-box-shadow: 0 0 0 40px var(--navy) inset, 0 0 0 3px rgba(255,226,90,.45);
+    box-shadow: 0 0 0 40px var(--navy) inset, 0 0 0 3px rgba(255,226,90,.45); }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 12px; color: var(--ink); }
+  .check input { margin-top: 2px; accent-color: var(--gold-3); }
+  #login .error { color: #ffe08a; font-size: 13px; font-weight: bold; margin: 10px 0 8px; text-shadow: var(--outline); }
+  #login .error:empty { margin: 14px 0 0; }
+  /* the main button: the chosen menu bar, white to gold, its words red-orange */
+  .go { all: unset; position: relative; cursor: pointer; padding: 8px 14px; border-radius: 4px;
+    font: italic 900 18px/1.1 var(--face); letter-spacing: .5px; color: var(--flame); text-shadow: var(--outline-white);
+    background: var(--bar-on); background-color: var(--gold-3); border: 2px solid #fff;
+    box-shadow: 0 0 0 2px var(--navy), 0 0 16px rgba(255,226,90,.6), 0 4px 0 rgba(6,32,94,.8); }
+  .go:hover { filter: brightness(1.06); box-shadow: 0 0 0 2px var(--navy), 0 0 26px rgba(255,236,120,.95), 0 4px 0 rgba(6,32,94,.8); }
+  .go:active { transform: translateY(2px); box-shadow: 0 0 0 2px var(--navy), 0 2px 0 rgba(6,32,94,.8); }
+  .go:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+  .go:disabled { background: linear-gradient(#a9b8cc, #7d8ea6); color: #e8eef6; text-shadow: var(--outline); box-shadow: 0 0 0 2px var(--navy); cursor: default; }
+  .actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  /* the other buttons: a blue menu bar */
+  .guest { all: unset; cursor: pointer; padding: 5px 16px 6px; border-radius: 4px; font: italic 900 13px var(--face); color: #fff;
+    text-shadow: var(--outline); background: linear-gradient(90deg, var(--blue-0), var(--blue-1) 60%, var(--blue-2));
+    border: 2px solid var(--edge); box-shadow: 0 0 0 1px var(--navy), 0 3px 0 rgba(6,32,94,.8); }
+  .guest:hover { border-color: #fff; filter: brightness(1.15); }
+  .guest:active { transform: translateY(1px); box-shadow: 0 0 0 1px var(--navy), 0 1px 0 rgba(6,32,94,.8); }
+  .guest:focus-visible { outline: 3px solid var(--gold-3); outline-offset: 2px; }
+  .tip { margin: 16px 0 0 !important; padding-top: 10px; border-top: 1px solid rgba(228,246,255,.3); font-size: 11px !important; color: var(--ink-soft) !important; text-align: center; font-weight: 600; }
+  /* what the server offers: the game's button-hint strip (blue, fading out at both ends), a ball
+     lit for each thing ready */
+  .leds { display: flex; flex-wrap: wrap; gap: 4px 18px; justify-content: center; font: italic 800 12px var(--face); color: #fff; text-shadow: var(--outline);
+    margin-top: 4px; padding: 5px 34px; background: linear-gradient(90deg, rgba(10,54,150,0), rgba(10,54,150,.92) 18%, rgba(15,79,196,.92) 82%, rgba(15,79,196,0));
+    box-shadow: inset 0 -1px 0 rgba(228,246,255,.6), inset 0 1px 0 rgba(228,246,255,.6); }
+  .leds span::before { content: ""; display: inline-block; width: 13px; height: 13px; border-radius: 50%; margin-right: 6px; vertical-align: -2px;
+    background: radial-gradient(circle at 35% 30%, #e8eef6, #8b98aa 60%, #4c5868); box-shadow: 0 0 0 1px var(--navy); }
+  .leds span.on::before { background: var(--dball) center / contain no-repeat; box-shadow: 0 0 8px rgba(255,190,60,.9); }
+  .fine { font-size: 11px; font-weight: 600; color: #fff; text-align: center; max-width: 420px; margin: 0; padding: 4px 14px; border-radius: 10px;
+    background: rgba(6,32,94,.6); text-shadow: 0 1px 2px var(--navy); }
+  #login.new .login-only, #login:not(.new) .new-only { display: none; }
+
+  /* ---- First visit: the game comes to this browser (the ISO and the HD textures, kept here so the
+     game never waits on the network), between the sign-in and the game. A ki gauge fills, the
+     four-star ball riding its end. */
+  #preload { position: fixed; inset: 0; display: none; z-index: 2; font-family: var(--body); color: var(--ink); overflow: hidden auto; }
+  #preload.open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .meter { position: relative; height: 26px; margin: 4px 0 8px; border-radius: 13px; overflow: hidden;
+    background: var(--navy); border: 2px solid var(--edge); box-shadow: inset 0 2px 6px rgba(0,0,0,.6); }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; overflow: hidden;
+    background: linear-gradient(#fffbe0, var(--gold-3) 45%, #ff9a00); box-shadow: 0 0 14px rgba(255,210,60,.7); transition: width .4s ease-out; }
+  .meter i::before { content: ""; position: absolute; top: 0; left: -29px; right: 0; bottom: 0;
+    background: repeating-linear-gradient(-45deg, rgba(255,255,255,.35) 0 6px, transparent 6px 14px);
+    animation: meter-run .7s linear infinite; }
+  @keyframes meter-run { to { transform: translateX(19.8px); } }
+  .meter .ball { position: absolute; top: 2px; left: 4px; width: 18px; height: 18px; transition: left .4s ease-out;
+    background: var(--dball) center / contain no-repeat; filter: drop-shadow(0 0 4px rgba(255,255,255,.8)); }
+  .meter span { position: absolute; inset: 0; display: grid; place-items: center; font: italic 900 14px var(--face);
+    color: #fff; text-shadow: var(--outline); letter-spacing: .5px; }
+  .pre-row { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 700; color: var(--ink); }
+  .pre-row span:last-child { color: var(--ink-soft); font-weight: 600; }
+  #pre-eta { margin: 6px 0 14px; font-size: 12px; color: var(--ink-soft); min-height: 1.2em; }
+  .pre-note { font-size: 12px; font-weight: 600; color: var(--ink); }
+  @media (prefers-reduced-motion: reduce) { .meter i::before { animation: none; } .meter i, .meter .ball { transition: none; } }
+
+  /* ---- Phones and tablets: the picture, the logo and a note */
+  #mobile { display: none; }
+  html.mobile, html.mobile body { overflow: auto; }
+  html.mobile #stage, html.mobile #login, html.mobile #picker, html.mobile #preload, html.mobile #gear, html.mobile #full, html.mobile #status, html.mobile #menu { display: none !important; }
+  html.mobile #mobile { display: grid; position: fixed; inset: 0; z-index: 4; place-items: center; padding: 16px; overflow: auto;
+    font-family: var(--body); color: var(--ink); }
+  #mobile .mwrap { position: relative; z-index: 1; width: min(420px, 100%); display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  #mobile .mlogo { width: 100%; height: auto; display: block; border-radius: 10px; border: 2px solid var(--edge);
+    box-shadow: 0 0 0 2px var(--navy), 0 10px 28px rgba(0,20,70,.55); }
+  #mobile .win { width: 100%; }
+  #mobile .body p { margin: 0; font-size: 15px; line-height: 1.5; }
+  #mobile .body p + p { margin-top: 10px; font-size: 12px; color: var(--ink-soft); }
+  /* Phones and narrow windows: the key art (it has the logo) on top, the form under it. */
+  @media (max-width: 820px) {
+    #login.open, #preload.open { grid-template-columns: 1fr; align-content: start; }
+    #login .side, #preload .side { min-height: 0; padding: 14px 16px 0; }
+    #login .logo-side, #preload .logo-side { order: -1; padding: 18px 16px 0; justify-content: flex-start; }
+    #login-art ~ .logo-side, #preload-art ~ .logo-side { display: none; }
+    #login .form-side, #preload .form-side { padding-bottom: 24px; }
+    .wordmark { font-size: 40px; margin: 8px 0 0; }
+    #login-art, #preload-art { position: relative; order: -1; justify-self: center; box-sizing: border-box; width: min(420px, calc(100% - 32px));
+      height: auto; min-width: 0; max-width: none; margin-top: 16px; object-fit: contain; -webkit-mask-image: none; mask-image: none;
+      border-radius: 10px; border: 2px solid var(--edge); box-shadow: 0 0 0 2px var(--navy), 0 10px 28px rgba(0,20,70,.55); }
+  }
+</style>
+</head>
+<body>
+<div id="mobile" class="sky" role="alertdialog" aria-modal="true" aria-labelledby="mobile-title" aria-describedby="mobile-text">
+  <div class="mwrap">
+    <img class="mlogo" src="art/scene.png" alt="Dragon Ball Z: Tenkaichi Tag Team" onerror="this.remove()">
+    <div class="win">
+      <div class="bar"><span class="ball"></span><span id="mobile-title">Fight on a computer!</span></div>
+      <div class="body">
+        <p id="mobile-text">Tenkaichi Tag Team plays on a computer: open this page on a desktop or a laptop, in Chrome, Edge or Firefox, with a keyboard or a gamepad.</p>
+        <p>A fan-made port of the PSP game. Not affiliated with Sony.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="stage"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
+<div id="picker" class="sky">
+  <div class="win">
+    <div class="bar"><span class="ball"></span>Insert your UMD</div>
+    <div class="body" style="text-align:center">
+      <p>Choose your Dragon Ball Z: Tenkaichi Tag Team (USA) ISO (ULUS-10537). The browser reads it right here: it is not sent anywhere.</p>
+      <label class="go">Open ISO<input type="file" id="iso" accept=".iso"></label>
+    </div>
+  </div>
+</div>
+<div id="login" class="sky" role="dialog" aria-modal="true" aria-labelledby="login-title">
+  <img id="login-art" src="art/scene.png" alt="Dragon Ball Z: Tenkaichi Tag Team" onerror="this.remove()">
+  <div class="side form-side">
+    <form class="win" id="login-form" novalidate>
+      <div class="bar"><span class="ball"></span><span id="login-title">The Budokai Tenkaichi Arrived!</span></div>
+      <div class="body">
+        <div class="tabs"><button type="button" id="tab-login" aria-pressed="true">Log in</button><button type="button" id="tab-new" aria-pressed="false">New player</button></div>
+        <label class="field"><span>Player name <small>(up to 10 letters or digits)</small></span><input id="l-name" autocomplete="username" maxlength="10" spellcheck="false"></label>
+        <label class="field">Password<input id="l-pass" type="password" autocomplete="current-password"></label>
+        <label class="field new-only">Password again<input id="l-pass2" type="password" autocomplete="new-password"></label>
+        <p class="error" id="l-error" role="alert"></p>
+        <div class="actions"><button type="submit" class="go" id="l-submit">Log in &amp; fight!</button>
+          <button type="button" class="guest" id="l-guest">Play without an account</button></div>
+        <p class="tip">Based on the PSP version: Dragon Ball Z: Tenkaichi Tag Team (2010).</p>
+      </div>
+    </form>
+    <div class="leds" aria-live="polite"><span id="led-net">Network play</span><span id="led-hd">HD textures</span></div>
+    <p class="fine">A fan-made port: bring your own copy of the game.<br>Not affiliated with Sony.</p>
+  </div>
+  <div class="side logo-side">
+    <div class="wordmark" aria-hidden="true">Tenkaichi Tag Team<small>PSP</small></div>
+  </div>
+</div>
+<div id="preload" class="sky" role="dialog" aria-modal="true" aria-labelledby="pre-title">
+  <img id="preload-art" src="art/scene.png" alt="" onerror="this.remove()">
+  <div class="side form-side">
+    <div class="win">
+      <div class="bar"><span class="ball"></span><span id="pre-title">Entering the arena…</span></div>
+      <div class="body">
+        <div class="meter" id="pre-meter" role="progressbar" aria-labelledby="pre-title" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <i id="pre-fill"></i><b class="ball" id="pre-ball"></b><span id="pre-pct">0%</span></div>
+        <div class="pre-row"><span id="pre-what">Getting ready</span><span id="pre-size"></span></div>
+        <p id="pre-eta">Connecting…</p>
+        <div class="actions"><span class="pre-note">Next time the game starts right away.</span>
+          <button type="button" class="guest" id="pre-skip">Play now</button></div>
+        <p class="tip">Play now skips the rest: what is missing loads while you play, and the rest comes next time.</p>
+      </div>
+    </div>
+    <p class="fine">Kept in this browser, so the game never waits for the network.</p>
+  </div>
+  <div class="side logo-side">
+    <div class="wordmark" aria-hidden="true">Tenkaichi Tag Team<small>PSP</small></div>
+  </div>
+</div>
+<div id="status">Loading…</div>
+<div id="crash" role="alert"></div>
+<button id="gear" class="corner" aria-label="Settings" title="Settings (Esc)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+</button>
+<button id="full" class="corner" aria-label="Fullscreen" title="Fullscreen (F11)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+  </svg>
+</button>
+<div id="menu" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+  <div class="win">
+    <div class="bar"><span class="ball"></span><h1 id="menu-title">Settings</h1><button id="close">Back to the game</button></div>
+    <div class="body">
+    <p class="hint">Esc, the gear button or the gamepad's Home button open this menu. On a gamepad: the d-pad moves, ✕ selects, ◯ goes back.</p>
+
+    <h2>Player</h2>
+    <div class="row"><span id="who">—</span><button id="switch">Switch player</button></div>
+
+    <h2>Sound</h2>
+    <div class="row"><span>Volume<br><span class="sub">Music, voices and sounds</span></span><div class="vol">
+      <button id="vol-down" aria-label="Lower">−</button><input type="range" id="vol" min="0" max="100" step="5" aria-label="Volume">
+      <span class="val" id="vol-val"></span><button id="vol-up" aria-label="Higher">+</button></div></div>
+
+    <h2>Video</h2>
+    <div class="row"><span>Fullscreen<br><span class="sub">Also F11 or double click</span></span><button id="fs">Enter</button></div>
+    <div class="row"><span>Internal resolution<br><span class="sub">The PSP's 480x272 drawn this many times larger (lower: lighter for the computer)</span></span><div class="seg" id="scale"></div></div>
+    <div class="row"><span>Original textures<br><span class="sub">The game's own pictures: smooth as the PSP filters them, sharp (xBR) or as crisp pixels; Sharp and Pixels turn the HD textures off</span></span><div class="seg" id="texf"></div></div>
+
+    <div class="row"><span>HD textures<br><span class="sub">The texture pack in build/textures, the sharp lettering included; off: the game's own textures</span></span><button id="hd">On</button></div>
+
+    <h2>Keyboard <button class="link" id="keys-reset">Restore defaults</button></h2>
+    <div class="grid" id="keys"></div>
+
+    <h2>Gamepad <button class="link" id="pad-reset">Restore defaults</button></h2>
+    <p class="hint" id="pad-name">No gamepad detected — press a button on it.</p>
+    <div class="row"><span>PSP analog stick<br><span class="sub">Walking around; the other stick works as the d-pad</span></span><div class="seg" id="stick"></div></div>
+    <div class="grid" id="pad"></div>
+    </div>
+  </div>
+</div>
+<script>
+// The page (sign-in, settings, the game's start): not on phones and tablets (see the head).
+if (!window.dbzMobile) {
+  var Module = {};  // the game's settings, filled in below (index.js reads them)
+  const statusEl = document.getElementById('status');
+  const canvas = document.getElementById('canvas');
+  // Keep the drawing buffer at the canvas's real size on screen (CSS pixels x devicePixelRatio).
+  function fitCanvas() {
+    const r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  }
+  new ResizeObserver(fitCanvas).observe(canvas);
+  window.addEventListener('resize', fitCanvas);
+  fitCanvas();
+
+  // ---- Settings (kept in this browser) ---------------------------------------------------------
+  const BUTTONS = [
+    ['up', '↑ Up', 0x10], ['down', '↓ Down', 0x40], ['left', '← Left', 0x80], ['right', '→ Right', 0x20],
+    ['cross', '✕', 0x4000], ['circle', '◯', 0x2000], ['square', '□', 0x8000], ['triangle', '△', 0x1000],
+    ['l', 'L', 0x100], ['r', 'R', 0x200], ['start', 'Start', 0x8], ['select', 'Select', 0x1],
+  ];
+  // The PSP analog stick (walking) on four keys: [dx, dy].
+  const ANALOG = [['aup', 'Analog ↑', 0, -1], ['adown', 'Analog ↓', 0, 1], ['aleft', 'Analog ←', -1, 0],
+                  ['aright', 'Analog →', 1, 0]];
+  // Keyboard: walking (the analog stick, which also moves through the menus) on the arrows, the d-pad
+  // (helpers up/down, taunts left/right) on IJKL, face buttons Z X A S, L/R on Q W.
+  const DEFAULT_KEYS = {up: 'KeyI', down: 'KeyK', left: 'KeyJ', right: 'KeyL', cross: 'KeyZ', circle: 'KeyX',
+                        square: 'KeyA', triangle: 'KeyS', l: 'KeyQ', r: 'KeyW', start: 'Enter', select: 'Backspace',
+                        aup: 'ArrowUp', adown: 'ArrowDown', aleft: 'ArrowLeft', aright: 'ArrowRight'};
+  const STICKS = [[0, 'Left stick'], [2, 'Right stick']];
+  const SCALES = [[1, '1x'], [2, '2x'], [3, '3x'], [4, '4x']];
+  const TEX_FILTERS = [[0, 'Smooth'], [1, 'Sharp'], [2, 'Pixels']];
+  // Standard gamepad layout indices.
+  const DEFAULT_PAD = {up: 12, down: 13, left: 14, right: 15, cross: 0, circle: 1, square: 2, triangle: 3, l: 4, r: 5,
+                       start: 9, select: 8};
+  const PAD_NAMES = ['A / ✕ (bottom)', 'B / ◯ (right)', 'X / □ (left)', 'Y / △ (top)', 'LB / L1', 'RB / R1',
+                     'LT / L2', 'RT / R2', 'Back / Select', 'Start', 'L3', 'R3', 'D-pad ↑', 'D-pad ↓',
+                     'D-pad ←', 'D-pad →', 'Home'];
+  const STORE = 'dbztag.settings';
+  const KEYS_VERSION = 2;
+
+  function loadSettings() {
+    let s = {};
+    try { s = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch (e) { s = {}; }
+    return {
+      // keys saved before the arrows walked (KEYS_VERSION 2) start again from the defaults
+      keys: Object.assign({}, DEFAULT_KEYS, s.keysVersion === KEYS_VERSION ? s.keys || {} : {}),
+      pad: Object.assign({}, DEFAULT_PAD, s.pad || {}),
+      // The PSP analog stick (walking): the left one unless the player picks the right.
+      padStick: s.analogStick === 'right' ? 2 : 0,
+      // By default 4x with the HD textures (the game's own ones smooth).
+      hd: s.hd !== false && !(s.texFilter > 0),  // the texture pack: on when there is one (not with sharp originals)
+      scale: [1, 2, 3, 4].includes(s.scale) ? s.scale : 4,  // the render scale
+      texFilter: [0, 1, 2].includes(s.texFilter) ? s.texFilter : 0,  // the game's own textures: 0 smooth, 1 xBR, 2 pixels
+      vt: false,  // the lettering comes sharp with the HD textures (its glyph pages are in the pack)
+      volume: Number.isFinite(s.volume) ? Math.min(100, Math.max(0, Math.round(s.volume))) : 30,  // percent of the game's own volume
+    };
+  }
+  const settings = loadSettings();
+  function saveSettings() {
+    const stored = Object.assign({}, settings);
+    stored.analogStick = settings.padStick === 0 ? 'left' : 'right';
+    stored.keysVersion = KEYS_VERSION;
+    delete stored.padStick;
+    try { localStorage.setItem(STORE, JSON.stringify(stored)); } catch (e) { /* private mode: settings last this visit */ }
+  }
+  // What the game reads (see platform_web.c): code -> mask and pad index -> mask.
+  function applyInput() {
+    const keyMap = {}, padMap = [];
+    for (const [id, , mask] of BUTTONS) {
+      if (settings.keys[id]) keyMap[settings.keys[id]] = (keyMap[settings.keys[id]] || 0) | mask;
+      if (settings.pad[id] != null && settings.pad[id] >= 0) padMap[settings.pad[id]] = (padMap[settings.pad[id]] || 0) | mask;
+    }
+    const keyAnalog = {};
+    for (const [id, , dx, dy] of ANALOG) if (settings.keys[id]) keyAnalog[settings.keys[id]] = [dx, dy];
+    const P = (Module.dbzInput = Module.dbzInput || {});
+    P.keyMap = keyMap;
+    P.keyAnalog = keyAnalog;
+    P.padMap = padMap;
+    P.padStick = settings.padStick;
+  }
+
+  function applyHd() {
+    Module.dbzHd = {on: settings.hd, dirty: true};
+  }
+  // The sound's volume (web/audio.js: a gain before the speakers), a share of the game's own.
+  function applyVolume() {
+    Module.dbzVolume = settings.volume / 100;
+    if (Module.dbzSetVolume) Module.dbzSetVolume(Module.dbzVolume);
+  }
+  function setVolume(v) {
+    settings.volume = Math.min(100, Math.max(0, Math.round(v)));
+    saveSettings(); applyVolume(); render();
+  }
+  // The render scale and the filter for the game's own textures (platform_web.c), while it runs.
+  function applyVideo() {
+    Module.dbzLive = {scale: settings.scale, uiFilter: 0, dirty: true};
+    Module.dbzTexFilter = {mode: settings.texFilter, dirty: true};
+  }
+  // The vector text (platform_web.c: the game's lines and the interface's words, both at once).
+  function applyText() {
+    Module.dbzText = {strings: settings.vt, ui: settings.vt, dirty: true};
+  }
+
+  // ---- Menu ------------------------------------------------------------------------------------
+  const menu = document.getElementById('menu'), gear = document.getElementById('gear');
+  let capture = null;  // {kind: 'key' | 'pad', id, el}
+  const keyLabel = (c) => !c ? '—' : c.startsWith('Key') ? c.slice(3) : c.startsWith('Digit') ? c.slice(5) :
+    ({ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Space: 'Space', Enter: 'Enter', Backspace: 'Backspace',
+      ShiftLeft: 'Left Shift', ShiftRight: 'Right Shift', ControlLeft: 'Left Ctrl', ControlRight: 'Right Ctrl',
+      AltLeft: 'Left Alt', AltRight: 'Right Alt', Tab: 'Tab'})[c] || c;
+  const padLabel = (i) => i == null || i < 0 ? '—' : PAD_NAMES[i] || 'Button ' + i;
+
+  function segButtons(el, items, current, onPick) {
+    el.textContent = '';
+    for (const [value, label] of items) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.setAttribute('aria-pressed', String(value === current));
+      b.addEventListener('click', () => onPick(value));
+      el.appendChild(b);
+    }
+  }
+  function bindRows(el, kind) {
+    el.textContent = '';
+    for (const [id, label] of kind === 'key' ? BUTTONS.concat(ANALOG) : BUTTONS) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const name = document.createElement('span');
+      name.textContent = label;
+      const b = document.createElement('button');
+      b.className = 'bind';
+      const waiting = capture && capture.kind === kind && capture.id === id;
+      b.classList.toggle('waiting', !!waiting);
+      b.textContent = waiting ? (kind === 'key' ? 'Press a key…' : 'Press a button…') :
+        kind === 'key' ? keyLabel(settings.keys[id]) : padLabel(settings.pad[id]);
+      b.addEventListener('click', () => { capture = waiting ? null : {kind, id}; render(); });
+      row.append(name, b);
+      el.appendChild(row);
+    }
+  }
+  function render() {
+    const focusedIdx = [...menu.querySelectorAll('button')].indexOf(document.activeElement);
+    document.getElementById('fs').textContent = document.fullscreenElement ? 'Leave' : 'Enter';
+    document.getElementById('vol').value = settings.volume;
+    document.getElementById('vol-val').textContent = settings.volume + '%';
+    const toggles = [['hd', settings.hd]];
+    for (const [id, on] of toggles) {
+      const b = document.getElementById(id);
+      if (!b) continue;
+      b.textContent = on ? 'On' : 'Off';
+      b.setAttribute('aria-pressed', String(on));
+    }
+    segButtons(document.getElementById('scale'), SCALES, settings.scale, (n) => {
+      settings.scale = n; saveSettings(); applyVideo(); render();
+    });
+    segButtons(document.getElementById('texf'), TEX_FILTERS, settings.texFilter, (n) => {
+      settings.texFilter = n;
+      if (n > 0 && settings.hd) { settings.hd = false; applyHd(); }  // crisp originals: the HD textures off
+      saveSettings(); applyVideo(); render();
+    });
+    segButtons(document.getElementById('stick'), STICKS, settings.padStick, (n) => {
+      settings.padStick = n; saveSettings(); applyInput(); render();
+    });
+    bindRows(document.getElementById('keys'), 'key');
+    bindRows(document.getElementById('pad'), 'pad');
+    const all = [...menu.querySelectorAll('button')];
+    if (focusedIdx >= 0 && all[focusedIdx]) all[focusedIdx].focus();
+  }
+  function openMenu() {
+    if (menu.classList.contains('open')) return;
+    Module.dbzMenuOpen = true;
+    capture = null;
+    menu.classList.add('open');
+    render();
+    document.getElementById('close').focus();
+  }
+  function closeMenu() {
+    capture = null;
+    menu.classList.remove('open');
+    Module.dbzMenuOpen = false;
+    canvas.focus();
+  }
+  // A key or button already used by another PSP button moves to the new one.
+  function assign(kind, id, value) {
+    const map = kind === 'key' ? settings.keys : settings.pad;
+    for (const k in map) if (k !== id && map[k] === value) map[k] = kind === 'key' ? '' : -1;
+    map[id] = value;
+    capture = null;
+    saveSettings();
+    applyInput();
+    render();
+  }
+  document.getElementById('close').addEventListener('click', closeMenu);
+  gear.addEventListener('click', openMenu);
+  menu.addEventListener('click', (e) => { if (e.target === menu) closeMenu(); });
+  document.getElementById('keys-reset').addEventListener('click', () => {
+    settings.keys = Object.assign({}, DEFAULT_KEYS); saveSettings(); applyInput(); render();
+  });
+  document.getElementById('pad-reset').addEventListener('click', () => {
+    settings.pad = Object.assign({}, DEFAULT_PAD); settings.padStick = 0; saveSettings(); applyInput(); render();
+  });
+
+  // Fullscreen (F11, double click or the menu). The keyboard lock lets Esc reach the page there.
+  // In fullscreen, Esc leaves it (the browser does that) and opens the settings too; leaving it
+  // with the button, F11 or a double click doesn't.
+  let leavingFullscreen = false;
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      leavingFullscreen = true;
+      return document.exitFullscreen();
+    }
+    return document.documentElement.requestFullscreen().catch(() => {});
+  };
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && !leavingFullscreen && Module.started && !loginEl.classList.contains('open')) openMenu();
+    leavingFullscreen = false;
+    if (menu.classList.contains('open')) render();
+  });
+  document.getElementById('fs').addEventListener('click', toggleFullscreen);
+  document.getElementById('full').addEventListener('click', toggleFullscreen);
+  document.getElementById('hd').addEventListener('click', () => {
+    settings.hd = !settings.hd;
+    if (settings.hd && settings.texFilter) { settings.texFilter = 0; applyVideo(); }  // the HD textures: smooth originals
+    saveSettings(); applyHd(); render();
+  });
+  document.getElementById('vol').addEventListener('input', (e) => setVolume(Number(e.target.value)));
+  document.getElementById('vol-down').addEventListener('click', () => setVolume(settings.volume - 10));
+  document.getElementById('vol-up').addEventListener('click', () => setVolume(settings.volume + 10));
+  canvas.addEventListener('dblclick', toggleFullscreen);
+
+  window.addEventListener('keydown', (e) => {
+    if (capture && capture.kind === 'key') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (e.code === 'Escape') { capture = null; render(); }
+      else assign('key', capture.id, e.code);
+      return;
+    }
+    if (loginEl.classList.contains('open')) return;  // typing a name or password
+    if (e.code === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      if (capture) { capture = null; render(); }
+      else if (menu.classList.contains('open')) closeMenu();
+      else openMenu();
+    }
+  }, true);
+
+  // The gear shows up while the mouse moves.
+
+  // Gamepad: Home opens/closes the menu; inside it the d-pad/stick moves the focus, ✕ picks, ◯ goes back,
+  // and a pending "press a button" capture takes the next pressed button.
+  let prevPad = [];
+  function padLoop() {
+    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+    const p = pads[0];
+    const nameEl = document.getElementById('pad-name');
+    if (nameEl) nameEl.textContent = p ? 'Gamepad: ' + p.id : 'No gamepad detected — press a button on it.';
+    if (p) {
+      const now = p.buttons.map((b) => b.pressed);
+      const dpadStick = settings.padStick === 2 ? 0 : 2;  // the stick that works as the d-pad also navigates the menu
+      if (p.axes.length >= dpadStick + 2) {
+        now.up = p.axes[dpadStick + 1] < -0.6; now.down = p.axes[dpadStick + 1] > 0.6;
+      }
+      const hit = (i) => now[i] && !prevPad[i];
+      if (capture && capture.kind === 'pad') {
+        const i = now.findIndex((v, k) => v && !prevPad[k]);
+        if (i >= 0) assign('pad', capture.id, i);
+      }
+      else if (hit(16)) {
+        menu.classList.contains('open') ? closeMenu() : openMenu();
+      }
+      else if (menu.classList.contains('open')) {
+        const all = [...menu.querySelectorAll('button')];
+        const at = all.indexOf(document.activeElement);
+        if (hit(12) || hit(14) || (now.up && !prevPad.up)) (all[at - 1] || all[all.length - 1]).focus();
+        else if (hit(13) || hit(15) || (now.down && !prevPad.down)) (all[at + 1] || all[0]).focus();
+        else if (hit(0) && at >= 0) all[at].click();
+        else if (hit(1)) closeMenu();
+      }
+      prevPad = now;
+    }
+    requestAnimationFrame(padLoop);
+  }
+  requestAnimationFrame(padLoop);
+
+  // ---- Player ----------------------------------------------------------------------------------
+  // Each window plays as one player (the session lives in this window's sessionStorage), whose
+  // saves the server keeps apart (serve_web.py: build/profiles/<name>); the game's ad hoc nickname
+  // is the player's name. A server without accounts (a plain host) plays the main save.
+  const SESSION = 'dbztag.session';
+  const loginEl = document.getElementById('login');
+  const player = {name: null, token: null};
+  const readSession = () => { try { return JSON.parse(sessionStorage.getItem(SESSION) || 'null'); } catch (e) { return null; } };
+  const writeSession = (v) => {
+    try { v ? sessionStorage.setItem(SESSION, JSON.stringify(v)) : sessionStorage.removeItem(SESSION); } catch (e) { /* this visit only */ }
+  };
+  const accountReady = new Promise((resolve) => {
+    const done = (v) => {
+      if (v && v.token) Object.assign(player, {name: v.name, token: v.token});
+      loginEl.classList.remove('open');
+      Module.dbzMenuOpen = false;
+      resolve();
+    };
+    const ask = () => {
+      const form = document.getElementById('login-form'), err = document.getElementById('l-error');
+      const nameEl = document.getElementById('l-name'), passEl = document.getElementById('l-pass');
+      const pass2El = document.getElementById('l-pass2');
+      const submit = document.getElementById('l-submit');
+      let creating = false;
+      const mode = (n) => {
+        creating = n;
+        loginEl.classList.toggle('new', n);
+        document.getElementById('tab-login').setAttribute('aria-pressed', String(!n));
+        document.getElementById('tab-new').setAttribute('aria-pressed', String(n));
+        submit.textContent = n ? 'Create & fight!' : 'Log in & fight!';
+        passEl.autocomplete = n ? 'new-password' : 'current-password';
+        err.textContent = '';
+        nameEl.focus();
+      };
+      document.getElementById('tab-login').addEventListener('click', () => mode(false));
+      document.getElementById('tab-new').addEventListener('click', () => mode(true));
+      document.getElementById('l-guest').addEventListener('click', () => { writeSession({guest: true}); done(null); });
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = nameEl.value.trim(), password = passEl.value;
+        if (!/^[A-Za-z0-9]{1,10}$/.test(name)) { err.textContent = 'A player name has 1 to 10 letters or digits.'; nameEl.focus(); return; }
+        if (password.length < 4) { err.textContent = 'The password needs at least 4 characters.'; passEl.focus(); return; }
+        if (creating && password !== pass2El.value) { err.textContent = 'The two passwords are different.'; pass2El.focus(); return; }
+        submit.disabled = true;
+        err.textContent = '';
+        try {
+          const r = await fetch(creating ? 'account/register' : 'account/login', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name, password, copy: true}),  // a new player starts from the main save
+          });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) { err.textContent = j.error || 'Error ' + r.status; return; }
+          writeSession({name: j.name, token: j.token});
+          done(j);
+        } catch (x) {
+          err.textContent = 'The server is not answering: is serve_web.py running?';
+        } finally {
+          submit.disabled = false;
+        }
+      });
+      Module.dbzMenuOpen = true;
+      loginEl.classList.add('open');
+      mode(false);
+      dressLogin();
+    };
+    const saved = readSession();
+    if ((saved && saved.guest) || new URLSearchParams(location.search).get('guest') === '1') return done(null);  // ?guest=1: tests
+    fetch('account/me', {headers: saved && saved.token ? {'X-DBZ-Session': saved.token} : {}}).then((r) => {
+      if (r.ok) return r.json().then((j) => done({name: j.name, token: saved.token}));
+      if (r.status === 401) return ask();
+      done(null);  // no accounts on this server
+    }).catch(() => done(null));
+  });
+  accountReady.then(() => {
+    document.getElementById('who').textContent = player.name ? 'Playing as ' + player.name : 'Main save (no account)';
+  });
+
+  // What the server offers, on the sign-in screen's lights.
+  function dressLogin() {
+    fetch('status').then((r) => r.ok ? r.json() : Promise.reject()).then((st) => {
+      const led = (id, on, text) => { const e = document.getElementById(id); e.classList.toggle('on', on); e.textContent = text; };
+      led('led-net', st.livekit, st.livekit ? 'Network play: ready' : 'Network play: not set up');
+      led('led-hd', st.textures > 0, st.textures > 0 ? `HD textures: ${st.textures.toLocaleString('en')}` : 'HD textures: none');
+    }).catch(() => {});
+  }
+  document.getElementById('switch').addEventListener('click', () => {
+    const t = player.token;
+    writeSession(null);
+    const reload = () => location.reload();
+    if (t) fetch('account/logout', {method: 'POST', headers: {'X-DBZ-Session': t}}).finally(reload);
+    else reload();
+  });
+
+  // ---- Game ------------------------------------------------------------------------------------
+  // The last lines of the game's log, shown if it stops with an error (copy them into a report).
+  const recentLog = [];
+  const logLine = (t) => { console.log(t); recentLog.push(String(t)); if (recentLog.length > 40) recentLog.shift(); };
+  function showCrash(what) {
+    const el = document.getElementById('crash');
+    el.textContent = '';
+    const title = document.createElement('b');
+    title.textContent = 'The game stopped with an error. Copy the text below into the report.';
+    el.append(title, '\n\n' + recentLog.slice(-25).join('\n') + '\n' + String(what || ''));
+    el.style.display = 'block';
+  }
+  Object.assign(Module, {
+    canvas,
+    print: logLine,
+    printErr: logLine,
+    onAbort: showCrash,
+    setStatus: (t) => { statusEl.textContent = t || ''; },
+    preRun: [() => {
+      // The render scale and the original textures' filter from the menu (URL parameters become
+      // environment variables and win, e.g. ?DBZ_SCALE=2 for a test).
+      ENV.DBZ_SCALE = String(settings.scale);  // the menu's (a URL parameter below wins, for tests)
+      ENV.DBZ_TEX_FILTER = String(settings.texFilter);
+      for (const [k, v] of new URLSearchParams(location.search)) ENV[k] = v;
+      // The player's save, kept in the project folder by the page's server (serve_web.py: the
+      // main save, or the player's own); without that server it stays in this browser (IndexedDB).
+      ENV.DBZ_MS0 = '/ms0';
+      FS.mkdir('/ms0');
+      // The texture pack (HD textures): the index now and whenever it changes (the game reads
+      // it again); the pictures are fetched by the game when it first needs them.
+      ENV.DBZ_TEXTURES = '/textures';
+      FS.mkdir('/textures');
+      let texIndex = '';
+      const texPoll = () => fetch('textures/index.txt').then((r) => r.ok ? r.text() : '').then((t) => {
+        if (t === texIndex) return;
+        texIndex = t;
+        FS.writeFile('/textures/index.tmp', t);
+        FS.rename('/textures/index.tmp', '/textures/index.txt');
+      }).catch(() => {});
+      addRunDependency('textures');
+      texPoll().finally(() => { removeRunDependency('textures'); setInterval(texPoll, 3000); });
+      addRunDependency('saves');
+      accountReady.then(() => {
+        if (player.name) ENV.DBZ_NICK = player.name;
+        Module.dbzSaveHeaders = player.token ? {'X-DBZ-Session': player.token} : {};
+        return fetch('saves/list', {headers: Module.dbzSaveHeaders});
+      }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(async (files) => {
+        for (const f of files) {
+          const r = await fetch('saves/' + f, {headers: Module.dbzSaveHeaders});
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          const data = new Uint8Array(await r.arrayBuffer());
+          FS.mkdirTree('/ms0/' + f.split('/').slice(0, -1).join('/'));
+          FS.writeFile('/ms0/' + f, data);
+        }
+        Module.dbzServerSaves = true;
+        console.log(`saves: project folder, ${player.name ? 'player ' + player.name : 'main save'} (${files.length} file(s))`);
+      }).catch((e) => {
+        console.log('saves: this browser (IndexedDB)', e && e.message);
+        FS.mount(IDBFS, {}, '/ms0');
+        return new Promise((done) => FS.syncfs(true, (err) => { if (err) console.error(err); done(); }));
+      }).finally(() => removeRunDependency('saves'));
+    }],
+    onRuntimeInitialized: () => { Module.ready = true; start(); },
+  });
+  applyInput();
+  applyHd();
+  applyText();
+  applyVolume();
+  function start() {
+    if (!Module.ready || !Module.isoBlob || !Module.dbzPreloaded || Module.started) return;
+    Module.started = true;
+    document.getElementById('picker').style.display = 'none';
+    statusEl.textContent = 'Esc: settings (fullscreen, keys and gamepad)';
+    setTimeout(() => { statusEl.style.opacity = '0'; }, 6000);
+    canvas.focus();
+    Module.callMain(['iso', '/image.bin']);
+  }
+
+  // ---- The ISO and the HD textures from the page's server -------------------------------------------
+  // Every read of the game's disc that misses io.c's cache is a round trip, and the game waits for
+  // it: from a server reached through the internet (a tunnel: 40-200 ms each) the game stalled each
+  // time it loaded something new, 64 KB at a time. The ISO goes in 1 MB blocks, the next two fetched
+  // ahead; the blocks and the pack's pictures stay in this browser (Cache Storage), so later visits
+  // read them from the disk, and the first visit can bring them all in before the game (the bar).
+  // The pack's pictures are decoded in workers: the game's thread only puts them on the GPU. A page
+  // on this computer keeps nothing (?preload=1 to try it there; ?preload=0 never).
+  const netq = new URLSearchParams(location.search);
+  const LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  const KEEP = 'caches' in window && netq.get('preload') !== '0' && (!LOCAL || netq.get('preload') === '1');
+  const ISO_BLOCK = 1 << 20, TEX_CACHE = 'dbztag-tex-v1';
+  const here = (p) => new URL(p, location.href).href;
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  // The game waits for the disc, not for the HD textures (it shows the originals until they come):
+  // they share the server's upload, so no picture starts downloading while a read of the disc is
+  // on its way, and two at most at a time (with HD on, the disc's reads waited behind a dozen
+  // pictures and the game stalled).
+  let isoBusy = 0;
+  const TEX_GATE = netq.get('texgate') !== '0';  // ?texgate=0: the pictures as before (tests)
+
+  // The game asks io.c for 64 KB pieces. A piece comes from memory, else from this browser's
+  // stores (the bar's 1 MB blocks, or pieces kept from an earlier visit), else from the server: just
+  // the missing pieces in one request, and when the game reads on from where it stopped (a file read
+  // through) the next three pieces with them. Pieces from the server are kept for the next visit.
+  // Every 10 s of activity the console says where the reads came from and how long the game waited.
+  function remoteIso(url, size) {
+    const PIECE = 64 << 10, PER_BLOCK = ISO_BLOCK / PIECE, last = Math.ceil(size / ISO_BLOCK) - 1;
+    const lastPiece = Math.ceil(size / PIECE) - 1;
+    const mem = new Map(), noBlock = new Set(), inflight = new Map();
+    const store = KEEP ? caches.open('dbztag-iso-' + size).catch(() => null) : Promise.resolve(null);
+    const pieces = KEEP ? caches.open('dbztag-isop-' + size).catch(() => null) : Promise.resolve(null);
+    const key = (i) => here('__iso/' + i), pkey = (p) => here('__isop/' + p);
+    const st = {net: 0, netBytes: 0, local: 0, wait: 0, since: performance.now()};
+    const keep = (p, b) => { mem.delete(p); mem.set(p, b); if (mem.size > 1536) mem.delete(mem.keys().next().value); };
+    const range = async (a, e) => {  // bytes a..e from the server, tried again a few times
+      isoBusy++;
+      try {
+        return await rangeOnce(a, e);
+      } finally {
+        isoBusy--;
+        texPump();
+      }
+    };
+    const rangeOnce = async (a, e) => {
+      for (let k = 0; ; k++) {
+        try {
+          const r = await fetch(url, {headers: {Range: `bytes=${a}-${e}`}, priority: 'high'});
+          if (r.status !== 206 && !(r.status === 200 && a === 0 && e === size - 1)) throw new Error('ISO: HTTP ' + r.status);
+          const b = new Uint8Array(await r.arrayBuffer());
+          if (b.length !== e - a + 1) throw new Error('ISO: short read');
+          return b;
+        } catch (err) {
+          if (k === 4) throw err;
+          await nap(500 * (k + 1));
+        }
+      }
+    };
+    const blockLoads = new Map();
+    const loadBlock = (blk) => {  // the bar's 1 MB block into memory: true if this browser has it
+      if (!blockLoads.has(blk)) {
+        blockLoads.set(blk, (async () => {
+          const c = await store, hit = c && await c.match(key(blk));
+          if (!hit) return false;
+          const b = new Uint8Array(await hit.arrayBuffer());
+          for (let k = 0; k * PIECE < b.length; k++) keep(blk * PER_BLOCK + k, b.subarray(k * PIECE, (k + 1) * PIECE));
+          return true;
+        })().catch(() => false).finally(() => blockLoads.delete(blk)));
+      }
+      return blockLoads.get(blk);
+    };
+    const fromStores = async (p) => {  // a piece from the bar's block or a kept piece, else null
+      const blk = Math.floor(p / PER_BLOCK);
+      if (!noBlock.has(blk)) {
+        const has = await loadBlock(blk);
+        if (has && mem.has(p)) return mem.get(p);
+        if (!has) noBlock.add(blk);
+      }
+      const cp = await pieces, hit = cp && await cp.match(pkey(p));
+      return hit ? new Uint8Array(await hit.arrayBuffer()) : null;
+    };
+    let lastEnd = -1;
+    const get = async (first, end, ahead) => {  // pieces first..end, in memory afterwards
+      const want = [];
+      for (let p = first; p <= end; p++) if (!mem.has(p) && !inflight.has(p)) want.push(p);
+      const local = await Promise.all(want.map((p) => mem.has(p) ? mem.get(p) : fromStores(p)));
+      const missing = [];
+      want.forEach((p, k) => { if (local[k]) { keep(p, local[k]); st.local++; } else missing.push(p); });
+      if (missing.length) {
+        // one request from the first missing piece to the last (and on, reading through)
+        let lo = missing[0], hi = missing[missing.length - 1];
+        if (ahead) for (let n = 0; n < 3 && hi < lastPiece && !mem.has(hi + 1) && !inflight.has(hi + 1); n++) hi++;
+        const job = range(lo * PIECE, Math.min(size, (hi + 1) * PIECE) - 1).then(async (b) => {
+          st.net++, st.netBytes += b.length;
+          const cp = await pieces;
+          for (let p = lo; p <= hi; p++) {
+            const piece = b.slice((p - lo) * PIECE, (p - lo + 1) * PIECE);
+            keep(p, piece);
+            if (cp) cp.put(pkey(p), new Response(piece)).catch(() => {});
+          }
+        });
+        for (let p = lo; p <= hi; p++) inflight.set(p, job);
+        job.catch(() => {}).finally(() => { for (let p = lo; p <= hi; p++) inflight.delete(p); });
+      }
+      const waits = [];
+      for (let p = first; p <= end; p++) if (!mem.has(p) && inflight.has(p)) waits.push(inflight.get(p));
+      await Promise.all(waits);
+    };
+    setInterval(() => {
+      if (!st.net && !st.local) return;
+      console.log(`iso: ${st.local} piece(s) from this browser, ${st.net} request(s) to the server ` +
+        `(${(st.netBytes / 1e6).toFixed(1)} MB), the game waited ${(st.wait / 1000).toFixed(1)} s ` +
+        `in ${Math.round((performance.now() - st.since) / 1000)} s`);
+      st.net = st.netBytes = st.local = st.wait = 0;
+      st.since = performance.now();
+    }, 10000);
+    return {
+      size, last, key, store,
+      // a block into this browser's store only (the bar)
+      fetchBlock: async (i) => {
+        const c = await store;
+        await c.put(key(i), new Response(await range(i * ISO_BLOCK, Math.min(size, (i + 1) * ISO_BLOCK) - 1)));
+      },
+      slice: (a, b) => ({
+        arrayBuffer: async () => {
+          b = Math.min(b, size);
+          if (b <= a) return new ArrayBuffer(0);
+          const t0 = performance.now(), first = Math.floor(a / PIECE), end = Math.floor((b - 1) / PIECE);
+          let ok = true;
+          for (let p = first; p <= end; p++) if (!mem.has(p)) { ok = false; break; }
+          for (let k = 0; !ok && k < 3; k++) {  // (a piece pushed out of memory meanwhile: once more)
+            await get(first, end, a === lastEnd);
+            ok = true;
+            for (let p = first; p <= end; p++) if (!mem.has(p)) { ok = false; break; }
+          }
+          if (!ok) throw new Error('ISO: cannot read ' + a + '-' + b);
+          lastEnd = b;
+          const out = new Uint8Array(b - a);
+          for (let p = first, o = 0; p <= end; p++) {
+            const piece = mem.get(p), from = p === first ? a - first * PIECE : 0, n = Math.min(piece.length - from, b - a - o);
+            out.set(piece.subarray(from, from + n), o);
+            o += n;
+          }
+          st.wait += performance.now() - t0;
+          return out.buffer;
+        },
+      }),
+    };
+  }
+
+  // A pack picture (QOI) decoded in a worker into what texpack.c reads: "RAW1", width, height (little
+  // endian), 4 unused bytes, then RGBA rows.
+  const TEX_WORKER = `
+    let store;
+    const qoi = (buf) => {
+      const d = new Uint8Array(buf), v = new DataView(buf);
+      if (d.length < 22 || v.getUint32(0) !== 0x716f6966) throw new Error('not a QOI picture');
+      const w = v.getUint32(4), h = v.getUint32(8), end = 16 + w * h * 4;
+      const out = new Uint8Array(end), ov = new DataView(out.buffer), idx = new Uint8Array(256);
+      out.set([82, 65, 87, 49]);
+      ov.setUint32(4, w, true);
+      ov.setUint32(8, h, true);
+      let r = 0, g = 0, b = 0, a = 255, p = 14, run = 0;
+      for (let o = 16; o < end; o += 4) {
+        if (run > 0) run--;
+        else {
+          const b1 = d[p++];
+          if (b1 === 0xfe) { r = d[p++]; g = d[p++]; b = d[p++]; }
+          else if (b1 === 0xff) { r = d[p++]; g = d[p++]; b = d[p++]; a = d[p++]; }
+          else if (b1 < 0x40) { const i = b1 * 4; r = idx[i]; g = idx[i + 1]; b = idx[i + 2]; a = idx[i + 3]; }
+          else if (b1 < 0x80) { r = (r + ((b1 >> 4) & 3) - 2) & 255; g = (g + ((b1 >> 2) & 3) - 2) & 255; b = (b + (b1 & 3) - 2) & 255; }
+          else if (b1 < 0xc0) { const b2 = d[p++], vg = (b1 & 63) - 32; r = (r + vg - 8 + (b2 >> 4)) & 255; g = (g + vg) & 255; b = (b + vg - 8 + (b2 & 15)) & 255; }
+          else run = b1 & 63;
+          const i = ((r * 3 + g * 5 + b * 7 + a * 11) & 63) * 4;
+          idx[i] = r; idx[i + 1] = g; idx[i + 2] = b; idx[i + 3] = a;
+        }
+        out[o] = r; out[o + 1] = g; out[o + 2] = b; out[o + 3] = a;
+      }
+      return out;
+    };
+    onmessage = async (e) => {
+      const {id, url, keep} = e.data;
+      try {
+        if (store === undefined) store = keep && self.caches ? await caches.open('${TEX_CACHE}').catch(() => null) : null;
+        let r = store && await store.match(url);
+        if (!r) {
+          r = await fetch(url, {credentials: 'same-origin', priority: 'low'});
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          if (store) store.put(url, r.clone()).catch(() => {});
+        }
+        const out = qoi(await r.arrayBuffer());
+        postMessage({id, out}, [out.buffer]);
+      } catch (err) { postMessage({id, error: String(err && err.message || err)}); }
+    };`;
+  const texWorkers = [], texWaiting = new Map(), texQueue = [];
+  let texSeq = 0, texRunning = 0;
+  function texPump() {  // the next pictures to the workers, while the disc isn't being read
+    while (texRunning < (TEX_GATE ? 2 : 12) && texQueue.length && (!TEX_GATE || !isoBusy)) {
+      const job = texQueue.shift();
+      texRunning++;
+      texWorkers[job.id % texWorkers.length].postMessage(job);
+    }
+  }
+  Module.dbzTexture = (url) => new Promise((resolve, reject) => {
+    try {
+      if (!texWorkers.length) {
+        const src = URL.createObjectURL(new Blob([TEX_WORKER], {type: 'text/javascript'}));
+        for (let i = 0; i < 2; i++) {
+          const w = new Worker(src);
+          w.onmessage = (e) => {
+            const t = texWaiting.get(e.data.id);
+            texWaiting.delete(e.data.id);
+            texRunning--;
+            texPump();
+            if (t) e.data.error ? t.reject(new Error(e.data.error)) : t.resolve(e.data.out);
+          };
+          texWorkers.push(w);
+        }
+      }
+    } catch (e) {  // no workers here: the game decodes the QOI itself
+      delete Module.dbzTexture;
+      fetch(url).then((r) => r.ok ? r.arrayBuffer() : Promise.reject(new Error('HTTP ' + r.status)))
+        .then((b) => resolve(new Uint8Array(b)), reject);
+      return;
+    }
+    const id = ++texSeq;
+    texWaiting.set(id, {resolve, reject});
+    texQueue.push({id, url: here(url), keep: KEEP});
+    texPump();
+  });
+
+  // The bar: the ISO's blocks, then the pack's pictures, into this browser's stores (whatever is
+  // there already is skipped; a visit that left halfway goes on from there). Once all of it is in,
+  // a mark in each store tells later visits to go straight to the game.
+  async function preload(iso) {
+    if (!KEEP || !iso.fetchBlock) return;
+    const isoStore = await iso.store;
+    const texStore = settings.hd ? await caches.open(TEX_CACHE).catch(() => null) : null;
+    if (!isoStore) return;
+    const index = texStore ? await fetch('textures/index.txt').then((r) => r.ok ? r.text() : '').catch(() => '') : '';
+    const files = index.split('\n').map((l) => l.trim().split(/\s+/)).filter((f) => f.length >= 4 && !f[0].startsWith('#'))
+      .map((f) => here('textures/' + f[3]));
+    let h = 0x811c9dc5;
+    for (let i = 0; i < index.length; i++) h = Math.imul(h ^ index.charCodeAt(i), 16777619) >>> 0;
+    const isoMark = iso.key('complete'), texMark = here('__tex/complete-' + h.toString(16));
+    const isoDone = !!(await isoStore.match(isoMark)), texDone = !files.length || !!(await texStore.match(texMark));
+    if (isoDone && texDone) return;
+    const st = await fetch('status').then((r) => r.json()).catch(() => ({}));
+    const total = (isoDone ? 0 : iso.size) + (texDone ? 0 : st.textures_bytes || files.length * 4e5);
+    try {
+      const est = await navigator.storage.estimate();
+      if (est.quota && est.quota < total * 1.1) {
+        console.log(`preload: this browser keeps ${Math.round(est.quota / 1e6)} MB, the game needs ${Math.round(total / 1e6)} MB`);
+        return;
+      }
+      if (navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    } catch (e) { /* no estimate: try anyway */ }
+
+    const el = (id) => document.getElementById(id), box = el('preload');
+    const size = (b) => b >= 1e9 ? (b / 1e9).toFixed(2) + ' GB' : Math.round(b / 1e6) + ' MB';
+    const time = (s) => s >= 90 ? Math.round(s / 60) + ' min' : Math.max(1, Math.round(s)) + ' s';
+    let done = 0, got = 0, skip = false, failed = 0, finish;
+    const t0 = performance.now(), ended = new Promise((r) => { finish = r; });
+    let shown = 0;
+    const show = (what, now) => {  // a few times a second: the bar's glide finishes between them
+      if (what) el('pre-what').textContent = what;
+      if (!now && !what && performance.now() - shown < 250) return;
+      shown = performance.now();
+      const pct = total ? Math.min(100, done / total * 100) : 100;
+      el('pre-fill').style.width = pct.toFixed(2) + '%';
+      el('pre-ball').style.left = `calc(${pct.toFixed(2)}% - ${(pct * 0.24).toFixed(1)}px + 4px)`;
+      el('pre-pct').textContent = Math.floor(pct) + '%';
+      el('pre-meter').setAttribute('aria-valuenow', String(Math.floor(pct)));
+      el('pre-size').textContent = size(done) + ' of ' + size(total);
+      const secs = (performance.now() - t0) / 1000, rate = got / Math.max(secs, 0.5);
+      el('pre-eta').textContent = got > 3e6 ? `${(rate / 1e6).toFixed(1)} MB/s · about ${time((total - done) / rate)} to go` : 'Connecting…';
+    };
+    el('pre-skip').onclick = () => { skip = true; finish(); };
+    box.classList.add('open');
+    el('pre-skip').focus();
+    show();
+    const pool = (items, n, fn) => {
+      let next = 0;
+      return Promise.all(Array.from({length: n}, async () => { while (!skip && next < items.length) await fn(items[next++]); }));
+    };
+    const tries = async (fn) => {
+      for (let k = 0; k < 3 && !skip; k++) {
+        try { return await fn(); } catch (e) { if (k === 2) { failed++; console.error('preload:', e.message || e); } else await nap(1500 * (k + 1)); }
+      }
+    };
+    (async () => {
+      if (!isoDone) {
+        show('The fighters and the stages');
+        const before = failed;
+        await pool(Array.from({length: iso.last + 1}, (_, i) => i), 4, async (i) => {
+          const len = Math.min(ISO_BLOCK, iso.size - i * ISO_BLOCK);
+          if (!(await isoStore.match(iso.key(i)))) await tries(async () => { await iso.fetchBlock(i); got += len; });
+          done += len;
+          show();
+        });
+        if (!skip && failed === before) await isoStore.put(isoMark, new Response('1'));
+      }
+      if (!texDone && !skip) {
+        show('The HD textures');
+        const before = failed;
+        await pool(files, 6, async (url) => {
+          const hit = await texStore.match(url);
+          if (hit) {
+            done += Number(hit.headers.get('Content-Length')) || 0;
+            return show();
+          }
+          await tries(async () => {
+            const r = await fetch(url, {credentials: 'same-origin'});
+            if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url);
+            const n = Number(r.headers.get('Content-Length')) || 0;
+            await texStore.put(url, r);
+            done += n, got += n;
+          });
+          show();
+        });
+        if (!skip && failed === before) await texStore.put(texMark, new Response('1'));
+      }
+      finish();
+    })().catch((e) => { console.error('preload:', e); finish(); });
+    await ended;
+    if (!skip) {
+      done = total;
+      show(failed ? 'Ready (some pieces load while you play)' : 'Ready!', true);
+      el('pre-eta').textContent = '\u00a0';
+      await nap(700);
+    }
+    box.classList.remove('open');
+  }
+
+  // The ISO comes from the server that hosts the page (/game.iso, read in byte ranges), or from
+  // ?iso=URL; only if neither exists the player picks a local file.
+  function useUrl(url) {
+    return fetch(url, {method: 'HEAD'}).then((r) => {
+      const size = Number(r.headers.get('Content-Length'));
+      if (!r.ok || !size) throw new Error('no ISO at ' + url);
+      Module.isoBlob = remoteIso(url, size);
+      // after the sign-in (or "Play without an account"), before the game
+      accountReady.then(() => preload(Module.isoBlob)).catch((e) => console.error('preload:', e))
+        .finally(() => { Module.dbzPreloaded = true; start(); });
+    });
+  }
+  useUrl(new URLSearchParams(location.search).get('iso') || 'game.iso').catch(() => {
+    statusEl.textContent = '';
+    document.getElementById('picker').style.display = 'grid';
+  });
+  document.getElementById('iso').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    Module.isoBlob = f;
+    Module.dbzPreloaded = true;  // a file of this computer: nothing to bring in
+    start();
+  });
+}
+</script>
+<template id="game-js">{{{ SCRIPT }}}</template>
+<script>
+  // The game itself (index.js, which fetches the wasm and the data), only on a computer; on phones
+  // and tablets, one of the title's illustrations behind the note.
+  if (!window.dbzMobile) {
+    const s = document.createElement('script');
+    s.src = document.getElementById('game-js').content.querySelector('script').getAttribute('src');
+    document.body.append(s);
+  }
+</script>
+</body>
+</html>

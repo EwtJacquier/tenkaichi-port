@@ -1,0 +1,1826 @@
+[
+ {
+  "addr": "08a663ec",
+  "lib": "scePower",
+  "nid": "04B7766E",
+  "name": "scePowerRegisterCallback",
+  "ret": "i",
+  "args": "ii"
+ },
+ {
+  "addr": "08a663f4",
+  "lib": "scePower",
+  "nid": "469989AD",
+  "name": "scePower_469989ad",
+  "ret": "x",
+  "args": "xxx"
+ },
+ {
+  "addr": "08a663fc",
+  "lib": "scePower",
+  "nid": "A85880D0",
+  "name": "scePowerCheckWlanCoexistenceClock",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a66404",
+  "lib": "scePower",
+  "nid": "DFA8BAF8",
+  "name": "scePowerUnregisterCallback",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a6640c",
+  "lib": "sceImpose",
+  "nid": "36AA6E91",
+  "name": "sceImposeSetLanguageMode",
+  "ret": "i",
+  "args": "ii"
+ },
+ {
+  "addr": "08a66414",
+  "lib": "sceImpose",
+  "nid": "72189C48",
+  "name": "sceImposeSetUMDPopup",
+  "ret": "x",
+  "args": "i"
+ },
+ {
+  "addr": "08a6641c",
+  "lib": "sceUmdUser",
+  "nid": "4A9E5E29",
+  "name": "sceUmdWaitDriveStatCB",
+  "ret": "i",
+  "args": "xx"
+ },
+ {
+  "addr": "08a66424",
+  "lib": "sceUmdUser",
+  "nid": "6B4A146C",
+  "name": "sceUmdGetDriveStat",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a6642c",
+  "lib": "sceUmdUser",
+  "nid": "AEE7404D",
+  "name": "sceUmdRegisterUMDCallBack",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66434",
+  "lib": "sceUmdUser",
+  "nid": "BD2BDE07",
+  "name": "sceUmdUnRegisterUMDCallBack",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a6643c",
+  "lib": "sceUmdUser",
+  "nid": "C6183D47",
+  "name": "sceUmdActivate",
+  "ret": "i",
+  "args": "is"
+ },
+ {
+  "addr": "08a66444",
+  "lib": "sceSasCore",
+  "nid": "019B25EB",
+  "name": "__sceSasSetADSR",
+  "ret": "x",
+  "args": "xiiiiii"
+ },
+ {
+  "addr": "08a6644c",
+  "lib": "sceSasCore",
+  "nid": "07F58C24",
+  "name": "__sceSasGetAllEnvelopeHeights",
+  "ret": "x",
+  "args": "xx"
+ },
+ {
+  "addr": "08a66454",
+  "lib": "sceSasCore",
+  "nid": "267A6DD2",
+  "name": "__sceSasRevParam",
+  "ret": "x",
+  "args": "xii"
+ },
+ {
+  "addr": "08a6645c",
+  "lib": "sceSasCore",
+  "nid": "2C8E6AB3",
+  "name": "__sceSasGetPauseFlag",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66464",
+  "lib": "sceSasCore",
+  "nid": "33D4AB37",
+  "name": "__sceSasRevType",
+  "ret": "x",
+  "args": "xi"
+ },
+ {
+  "addr": "08a6646c",
+  "lib": "sceSasCore",
+  "nid": "42778A9F",
+  "name": "__sceSasInit",
+  "ret": "x",
+  "args": "xxxxx"
+ },
+ {
+  "addr": "08a66474",
+  "lib": "sceSasCore",
+  "nid": "440CA7D8",
+  "name": "__sceSasSetVolume",
+  "ret": "x",
+  "args": "xiiiii"
+ },
+ {
+  "addr": "08a6647c",
+  "lib": "sceSasCore",
+  "nid": "50A14DFC",
+  "name": "__sceSasCoreWithMix",
+  "ret": "x",
+  "args": "xxii"
+ },
+ {
+  "addr": "08a66484",
+  "lib": "sceSasCore",
+  "nid": "5F9529F6",
+  "name": "__sceSasSetSL",
+  "ret": "x",
+  "args": "xii"
+ },
+ {
+  "addr": "08a6648c",
+  "lib": "sceSasCore",
+  "nid": "68A46B95",
+  "name": "__sceSasGetEndFlag",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66494",
+  "lib": "sceSasCore",
+  "nid": "74AE582A",
+  "name": "__sceSasGetEnvelopeHeight",
+  "ret": "x",
+  "args": "xi"
+ },
+ {
+  "addr": "08a6649c",
+  "lib": "sceSasCore",
+  "nid": "76F01ACA",
+  "name": "__sceSasSetKeyOn",
+  "ret": "x",
+  "args": "xi"
+ },
+ {
+  "addr": "08a664a4",
+  "lib": "sceSasCore",
+  "nid": "787D04D5",
+  "name": "__sceSasSetPause",
+  "ret": "x",
+  "args": "xxi"
+ },
+ {
+  "addr": "08a664ac",
+  "lib": "sceSasCore",
+  "nid": "99944089",
+  "name": "__sceSasSetVoice",
+  "ret": "x",
+  "args": "xixii"
+ },
+ {
+  "addr": "08a664b4",
+  "lib": "sceSasCore",
+  "nid": "9EC3676A",
+  "name": "__sceSasSetADSRmode",
+  "ret": "x",
+  "args": "xiiiiii"
+ },
+ {
+  "addr": "08a664bc",
+  "lib": "sceSasCore",
+  "nid": "A0CF2FA4",
+  "name": "__sceSasSetKeyOff",
+  "ret": "x",
+  "args": "xi"
+ },
+ {
+  "addr": "08a664c4",
+  "lib": "sceSasCore",
+  "nid": "A3589D81",
+  "name": "__sceSasCore",
+  "ret": "x",
+  "args": "xx"
+ },
+ {
+  "addr": "08a664cc",
+  "lib": "sceSasCore",
+  "nid": "AD84D37F",
+  "name": "__sceSasSetPitch",
+  "ret": "x",
+  "args": "xii"
+ },
+ {
+  "addr": "08a664d4",
+  "lib": "sceSasCore",
+  "nid": "B7660A23",
+  "name": "__sceSasSetNoise",
+  "ret": "x",
+  "args": "xii"
+ },
+ {
+  "addr": "08a664dc",
+  "lib": "sceSasCore",
+  "nid": "BD11B7C2",
+  "name": "__sceSasGetGrain",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a664e4",
+  "lib": "sceSasCore",
+  "nid": "CBCD4F79",
+  "name": "__sceSasSetSimpleADSR",
+  "ret": "x",
+  "args": "xixx"
+ },
+ {
+  "addr": "08a664ec",
+  "lib": "sceSasCore",
+  "nid": "D1E0A01E",
+  "name": "__sceSasSetGrain",
+  "ret": "x",
+  "args": "xi"
+ },
+ {
+  "addr": "08a664f4",
+  "lib": "sceSasCore",
+  "nid": "D5A229C9",
+  "name": "__sceSasRevEVOL",
+  "ret": "x",
+  "args": "xxx"
+ },
+ {
+  "addr": "08a664fc",
+  "lib": "sceSasCore",
+  "nid": "E175EF66",
+  "name": "__sceSasGetOutputmode",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66504",
+  "lib": "sceSasCore",
+  "nid": "E1CD9561",
+  "name": "__sceSasSetVoicePCM",
+  "ret": "x",
+  "args": "xixii"
+ },
+ {
+  "addr": "08a6650c",
+  "lib": "sceSasCore",
+  "nid": "E855BF76",
+  "name": "__sceSasSetOutputmode",
+  "ret": "x",
+  "args": "xx"
+ },
+ {
+  "addr": "08a66514",
+  "lib": "sceSasCore",
+  "nid": "F983B186",
+  "name": "__sceSasRevVON",
+  "ret": "x",
+  "args": "xii"
+ },
+ {
+  "addr": "08a6651c",
+  "lib": "sceAudio",
+  "nid": "01562BA3",
+  "name": "sceAudioOutput2Reserve",
+  "ret": "x",
+  "args": "i"
+ },
+ {
+  "addr": "08a66524",
+  "lib": "sceAudio",
+  "nid": "2D53F36E",
+  "name": "sceAudioOutput2OutputBlocking",
+  "ret": "x",
+  "args": "xx"
+ },
+ {
+  "addr": "08a6652c",
+  "lib": "sceAudio",
+  "nid": "43196845",
+  "name": "sceAudioOutput2Release",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a66534",
+  "lib": "sceAudio",
+  "nid": "136CAF51",
+  "name": "sceAudioOutputBlocking",
+  "ret": "x",
+  "args": "ixx"
+ },
+ {
+  "addr": "08a6653c",
+  "lib": "sceAudio",
+  "nid": "13F592BC",
+  "name": "sceAudioOutputPannedBlocking",
+  "ret": "x",
+  "args": "ixxx"
+ },
+ {
+  "addr": "08a66544",
+  "lib": "sceAudio",
+  "nid": "5EC81C55",
+  "name": "sceAudioChReserve",
+  "ret": "x",
+  "args": "iii"
+ },
+ {
+  "addr": "08a6654c",
+  "lib": "sceAudio",
+  "nid": "6FC46853",
+  "name": "sceAudioChRelease",
+  "ret": "x",
+  "args": "i"
+ },
+ {
+  "addr": "08a66554",
+  "lib": "sceAudio",
+  "nid": "95FD0C2D",
+  "name": "sceAudioChangeChannelConfig",
+  "ret": "x",
+  "args": "ii"
+ },
+ {
+  "addr": "08a6655c",
+  "lib": "sceAudio",
+  "nid": "B011922F",
+  "name": "sceAudioGetChannelRestLength",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a66564",
+  "lib": "sceAudio",
+  "nid": "B7E1D8E7",
+  "name": "sceAudioChangeChannelVolume",
+  "ret": "x",
+  "args": "ixx"
+ },
+ {
+  "addr": "08a6656c",
+  "lib": "sceAudio",
+  "nid": "CB2E439E",
+  "name": "sceAudioSetChannelDataLen",
+  "ret": "x",
+  "args": "ii"
+ },
+ {
+  "addr": "08a66574",
+  "lib": "sceAudio",
+  "nid": "E2D56B2D",
+  "name": "sceAudioOutputPanned",
+  "ret": "x",
+  "args": "ixxx"
+ },
+ {
+  "addr": "08a6657c",
+  "lib": "sceUtility",
+  "nid": "180F7B62",
+  "name": "sceUtilityGamedataInstallAbort",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66584",
+  "lib": "sceUtility",
+  "nid": "24AC31EB",
+  "name": "sceUtilityGamedataInstallInitStart",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a6658c",
+  "lib": "sceUtility",
+  "nid": "2A2B3DE0",
+  "name": "sceUtilityLoadModule",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66594",
+  "lib": "sceUtility",
+  "nid": "2AD8E239",
+  "name": "sceUtilityMsgDialogInitStart",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a6659c",
+  "lib": "sceUtility",
+  "nid": "32E32DCB",
+  "name": "sceUtilityGamedataInstallShutdownStart",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a665a4",
+  "lib": "sceUtility",
+  "nid": "34B78343",
+  "name": "sceUtilityGetSystemParamString",
+  "ret": "x",
+  "args": "xxi"
+ },
+ {
+  "addr": "08a665ac",
+  "lib": "sceUtility",
+  "nid": "3DFAEBA9",
+  "name": "sceUtilityOskShutdownStart",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a665b4",
+  "lib": "sceUtility",
+  "nid": "4AECD179",
+  "name": "sceUtilityGamedataInstallUpdate",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a665bc",
+  "lib": "sceUtility",
+  "nid": "4B85C861",
+  "name": "sceUtilityOskUpdate",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a665c4",
+  "lib": "sceUtility",
+  "nid": "50C4CD57",
+  "name": "sceUtilitySavedataInitStart",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a665cc",
+  "lib": "sceUtility",
+  "nid": "67AF3428",
+  "name": "sceUtilityMsgDialogShutdownStart",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a665d4",
+  "lib": "sceUtility",
+  "nid": "8874DBE0",
+  "name": "sceUtilitySavedataGetStatus",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a665dc",
+  "lib": "sceUtility",
+  "nid": "95FC253B",
+  "name": "sceUtilityMsgDialogUpdate",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a665e4",
+  "lib": "sceUtility",
+  "nid": "9790B33C",
+  "name": "sceUtilitySavedataShutdownStart",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a665ec",
+  "lib": "sceUtility",
+  "nid": "9A1C91D7",
+  "name": "sceUtilityMsgDialogGetStatus",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a665f4",
+  "lib": "sceUtility",
+  "nid": "A5DA2406",
+  "name": "sceUtilityGetSystemParamInt",
+  "ret": "x",
+  "args": "xx"
+ },
+ {
+  "addr": "08a665fc",
+  "lib": "sceUtility",
+  "nid": "B57E95D9",
+  "name": "sceUtilityGamedataInstallGetStatus",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66604",
+  "lib": "sceUtility",
+  "nid": "D4B95FFB",
+  "name": "sceUtilitySavedataUpdate",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a6660c",
+  "lib": "sceUtility",
+  "nid": "E49BFE92",
+  "name": "sceUtilityUnloadModule",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66614",
+  "lib": "sceUtility",
+  "nid": "F3F76017",
+  "name": "sceUtilityOskGetStatus",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a6661c",
+  "lib": "sceUtility",
+  "nid": "F6269B82",
+  "name": "sceUtilityOskInitStart",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a66624",
+  "lib": "sceMpeg",
+  "nid": "0E3C2E9D",
+  "name": "sceMpegAvcDecode",
+  "ret": "x",
+  "args": "xxxxx"
+ },
+ {
+  "addr": "08a6662c",
+  "lib": "sceMpeg",
+  "nid": "13407F13",
+  "name": "sceMpegRingbufferDestruct",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66634",
+  "lib": "sceMpeg",
+  "nid": "167AFD9E",
+  "name": "sceMpegInitAu",
+  "ret": "i",
+  "args": "xxx"
+ },
+ {
+  "addr": "08a6663c",
+  "lib": "sceMpeg",
+  "nid": "21FF80E4",
+  "name": "sceMpegQueryStreamOffset",
+  "ret": "i",
+  "args": "xxx"
+ },
+ {
+  "addr": "08a66644",
+  "lib": "sceMpeg",
+  "nid": "37295ED8",
+  "name": "sceMpegRingbufferConstruct",
+  "ret": "x",
+  "args": "xxxxxx"
+ },
+ {
+  "addr": "08a6664c",
+  "lib": "sceMpeg",
+  "nid": "42560F23",
+  "name": "sceMpegRegistStream",
+  "ret": "i",
+  "args": "xxx"
+ },
+ {
+  "addr": "08a66654",
+  "lib": "sceMpeg",
+  "nid": "591A4AA2",
+  "name": "sceMpegUnRegistStream",
+  "ret": "x",
+  "args": "xi"
+ },
+ {
+  "addr": "08a6665c",
+  "lib": "sceMpeg",
+  "nid": "606A4649",
+  "name": "sceMpegDelete",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a66664",
+  "lib": "sceMpeg",
+  "nid": "611E9E11",
+  "name": "sceMpegQueryStreamSize",
+  "ret": "x",
+  "args": "xx"
+ },
+ {
+  "addr": "08a6666c",
+  "lib": "sceMpeg",
+  "nid": "682A619B",
+  "name": "sceMpegInit",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a66674",
+  "lib": "sceMpeg",
+  "nid": "740FCCD1",
+  "name": "sceMpegAvcDecodeStop",
+  "ret": "x",
+  "args": "xxxx"
+ },
+ {
+  "addr": "08a6667c",
+  "lib": "sceMpeg",
+  "nid": "800C44DF",
+  "name": "sceMpegAtracDecode",
+  "ret": "x",
+  "args": "xxxi"
+ },
+ {
+  "addr": "08a66684",
+  "lib": "sceMpeg",
+  "nid": "874624D6",
+  "name": "sceMpegFinish",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a6668c",
+  "lib": "sceMpeg",
+  "nid": "A780CF7E",
+  "name": "sceMpegMallocAvcEsBuf",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a66694",
+  "lib": "sceMpeg",
+  "nid": "B240A59E",
+  "name": "sceMpegRingbufferPut",
+  "ret": "x",
+  "args": "xxx"
+ },
+ {
+  "addr": "08a6669c",
+  "lib": "sceMpeg",
+  "nid": "B5F6DC87",
+  "name": "sceMpegRingbufferAvailableSize",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a666a4",
+  "lib": "sceMpeg",
+  "nid": "C132E22F",
+  "name": "sceMpegQueryMemSize",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a666ac",
+  "lib": "sceMpeg",
+  "nid": "CEB870B1",
+  "name": "sceMpegFreeAvcEsBuf",
+  "ret": "i",
+  "args": "xi"
+ },
+ {
+  "addr": "08a666b4",
+  "lib": "sceMpeg",
+  "nid": "D7A29F46",
+  "name": "sceMpegRingbufferQueryMemSize",
+  "ret": "x",
+  "args": "i"
+ },
+ {
+  "addr": "08a666bc",
+  "lib": "sceMpeg",
+  "nid": "D8C5F121",
+  "name": "sceMpegCreate",
+  "ret": "x",
+  "args": "xxxxxxx"
+ },
+ {
+  "addr": "08a666c4",
+  "lib": "sceMpeg",
+  "nid": "E1CE83A7",
+  "name": "sceMpegGetAtracAu",
+  "ret": "i",
+  "args": "xxxx"
+ },
+ {
+  "addr": "08a666cc",
+  "lib": "sceMpeg",
+  "nid": "F8DCB679",
+  "name": "sceMpegQueryAtracEsSize",
+  "ret": "i",
+  "args": "xxx"
+ },
+ {
+  "addr": "08a666d4",
+  "lib": "sceMpeg",
+  "nid": "FE246728",
+  "name": "sceMpegGetAvcAu",
+  "ret": "i",
+  "args": "xxxx"
+ },
+ {
+  "addr": "08a666dc",
+  "lib": "sceAtrac3plus",
+  "nid": "0C116E1B",
+  "name": "sceAtracLowLevelDecode",
+  "ret": "x",
+  "args": "ixpxp"
+ },
+ {
+  "addr": "08a666e4",
+  "lib": "sceAtrac3plus",
+  "nid": "132F1ECA",
+  "name": "sceAtracReinit",
+  "ret": "x",
+  "args": "ii"
+ },
+ {
+  "addr": "08a666ec",
+  "lib": "sceAtrac3plus",
+  "nid": "1575D64B",
+  "name": "sceAtracLowLevelInitDecoder",
+  "ret": "x",
+  "args": "ix"
+ },
+ {
+  "addr": "08a666f4",
+  "lib": "sceAtrac3plus",
+  "nid": "61EB33F5",
+  "name": "sceAtracReleaseAtracID",
+  "ret": "x",
+  "args": "i"
+ },
+ {
+  "addr": "08a666fc",
+  "lib": "sceAtrac3plus",
+  "nid": "780F88D1",
+  "name": "sceAtracGetAtracID",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a66704",
+  "lib": "sceNet",
+  "nid": "281928A9",
+  "name": "sceNetTerm",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a6670c",
+  "lib": "sceNet",
+  "nid": "39AF39A6",
+  "name": "sceNetInit",
+  "ret": "i",
+  "args": "xxxxx"
+ },
+ {
+  "addr": "08a66714",
+  "lib": "sceNetAdhoc",
+  "nid": "6F92741B",
+  "name": "sceNetAdhocPdpCreate",
+  "ret": "i",
+  "args": "siix"
+ },
+ {
+  "addr": "08a6671c",
+  "lib": "sceNetAdhoc",
+  "nid": "7F27BB5E",
+  "name": "sceNetAdhocPdpDelete",
+  "ret": "i",
+  "args": "ii"
+ },
+ {
+  "addr": "08a66724",
+  "lib": "sceNetAdhoc",
+  "nid": "A62C6F57",
+  "name": "sceNetAdhocTerm",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a6672c",
+  "lib": "sceNetAdhoc",
+  "nid": "ABED3790",
+  "name": "sceNetAdhocPdpSend",
+  "ret": "i",
+  "args": "isxpiii"
+ },
+ {
+  "addr": "08a66734",
+  "lib": "sceNetAdhoc",
+  "nid": "DFE53E03",
+  "name": "sceNetAdhocPdpRecv",
+  "ret": "i",
+  "args": "ippppxi"
+ },
+ {
+  "addr": "08a6673c",
+  "lib": "sceNetAdhoc",
+  "nid": "E1D621D7",
+  "name": "sceNetAdhocInit",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a66744",
+  "lib": "sceNetAdhocctl",
+  "nid": "08FFF7A0",
+  "name": "sceNetAdhocctlScan",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a6674c",
+  "lib": "sceNetAdhocctl",
+  "nid": "0AD043ED",
+  "name": "sceNetAdhocctlConnect",
+  "ret": "i",
+  "args": "s"
+ },
+ {
+  "addr": "08a66754",
+  "lib": "sceNetAdhocctl",
+  "nid": "20B317A0",
+  "name": "sceNetAdhocctlAddHandler",
+  "ret": "x",
+  "args": "xx"
+ },
+ {
+  "addr": "08a6675c",
+  "lib": "sceNetAdhocctl",
+  "nid": "34401D65",
+  "name": "sceNetAdhocctlDisconnect",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a66764",
+  "lib": "sceNetAdhocctl",
+  "nid": "5E7F79C9",
+  "name": "sceNetAdhocctlJoin",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a6676c",
+  "lib": "sceNetAdhocctl",
+  "nid": "6402490B",
+  "name": "sceNetAdhocctlDelHandler",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66774",
+  "lib": "sceNetAdhocctl",
+  "nid": "75ECD386",
+  "name": "sceNetAdhocctlGetState",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a6677c",
+  "lib": "sceNetAdhocctl",
+  "nid": "81AEE1BE",
+  "name": "sceNetAdhocctlGetScanInfo",
+  "ret": "i",
+  "args": "xx"
+ },
+ {
+  "addr": "08a66784",
+  "lib": "sceNetAdhocctl",
+  "nid": "8DB83FDC",
+  "name": "sceNetAdhocctlGetPeerInfo",
+  "ret": "i",
+  "args": "six"
+ },
+ {
+  "addr": "08a6678c",
+  "lib": "sceNetAdhocctl",
+  "nid": "9D689E13",
+  "name": "sceNetAdhocctlTerm",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66794",
+  "lib": "sceNetAdhocctl",
+  "nid": "E162CB14",
+  "name": "sceNetAdhocctlGetPeerList",
+  "ret": "i",
+  "args": "xx"
+ },
+ {
+  "addr": "08a6679c",
+  "lib": "sceNetAdhocctl",
+  "nid": "E26F226E",
+  "name": "sceNetAdhocctlInit",
+  "ret": "x",
+  "args": "iix"
+ },
+ {
+  "addr": "08a667a4",
+  "lib": "sceNetAdhocMatching",
+  "nid": "2A2A1E07",
+  "name": "sceNetAdhocMatchingInit",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a667ac",
+  "lib": "sceNetAdhocMatching",
+  "nid": "32B156B3",
+  "name": "sceNetAdhocMatchingStop",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a667b4",
+  "lib": "sceNetAdhocMatching",
+  "nid": "5E3D4B79",
+  "name": "sceNetAdhocMatchingSelectTarget",
+  "ret": "i",
+  "args": "isix"
+ },
+ {
+  "addr": "08a667bc",
+  "lib": "sceNetAdhocMatching",
+  "nid": "7945ECDA",
+  "name": "sceNetAdhocMatchingTerm",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a667c4",
+  "lib": "sceNetAdhocMatching",
+  "nid": "8F58BEDF",
+  "name": "sceNetAdhocMatchingCancelTargetWithOpt",
+  "ret": "i",
+  "args": "isix"
+ },
+ {
+  "addr": "08a667cc",
+  "lib": "sceNetAdhocMatching",
+  "nid": "93EF3843",
+  "name": "sceNetAdhocMatchingStart",
+  "ret": "i",
+  "args": "iiiiiix"
+ },
+ {
+  "addr": "08a667d4",
+  "lib": "sceNetAdhocMatching",
+  "nid": "B58E61B7",
+  "name": "sceNetAdhocMatchingSetHelloOpt",
+  "ret": "i",
+  "args": "iix"
+ },
+ {
+  "addr": "08a667dc",
+  "lib": "sceNetAdhocMatching",
+  "nid": "CA5EDA6F",
+  "name": "sceNetAdhocMatchingCreate",
+  "ret": "i",
+  "args": "iiiiiiiix"
+ },
+ {
+  "addr": "08a667e4",
+  "lib": "sceNetAdhocMatching",
+  "nid": "EC19337D",
+  "name": "sceNetAdhocMatchingAbortSendData",
+  "ret": "i",
+  "args": "is"
+ },
+ {
+  "addr": "08a667ec",
+  "lib": "sceNetAdhocMatching",
+  "nid": "F16EAF4F",
+  "name": "sceNetAdhocMatchingDelete",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a667f4",
+  "lib": "sceNetAdhocMatching",
+  "nid": "F79472D7",
+  "name": "sceNetAdhocMatchingSendData",
+  "ret": "i",
+  "args": "isix"
+ },
+ {
+  "addr": "08a667fc",
+  "lib": "sceWlanDrv",
+  "nid": "0C622081",
+  "name": "sceWlanGetEtherAddr",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66804",
+  "lib": "sceWlanDrv",
+  "nid": "D7763699",
+  "name": "sceWlanGetSwitchState",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a6680c",
+  "lib": "IoFileMgrForUser",
+  "nid": "42EC03AC",
+  "name": "sceIoWrite",
+  "ret": "i",
+  "args": "ixi"
+ },
+ {
+  "addr": "08a66814",
+  "lib": "IoFileMgrForUser",
+  "nid": "54F5FB11",
+  "name": "sceIoDevctl",
+  "ret": "i",
+  "args": "sxpipi"
+ },
+ {
+  "addr": "08a6681c",
+  "lib": "IoFileMgrForUser",
+  "nid": "63632449",
+  "name": "sceIoIoctl",
+  "ret": "i",
+  "args": "ixpipi"
+ },
+ {
+  "addr": "08a66824",
+  "lib": "IoFileMgrForUser",
+  "nid": "6A638D83",
+  "name": "sceIoRead",
+  "ret": "i",
+  "args": "ixi"
+ },
+ {
+  "addr": "08a6682c",
+  "lib": "IoFileMgrForUser",
+  "nid": "779103A0",
+  "name": "sceIoRename",
+  "ret": "i",
+  "args": "ss"
+ },
+ {
+  "addr": "08a66834",
+  "lib": "IoFileMgrForUser",
+  "nid": "810C4BC3",
+  "name": "sceIoClose",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a6683c",
+  "lib": "IoFileMgrForUser",
+  "nid": "ACE946E8",
+  "name": "sceIoGetstat",
+  "ret": "i",
+  "args": "sx"
+ },
+ {
+  "addr": "08a66844",
+  "lib": "IoFileMgrForUser",
+  "nid": "109F50BC",
+  "name": "sceIoOpen",
+  "ret": "i",
+  "args": "sii"
+ },
+ {
+  "addr": "08a6684c",
+  "lib": "IoFileMgrForUser",
+  "nid": "27EB27B8",
+  "name": "sceIoLseek",
+  "ret": "I",
+  "args": "iIi"
+ },
+ {
+  "addr": "08a66854",
+  "lib": "Kernel_Library",
+  "nid": "092968F4",
+  "name": "sceKernelCpuSuspendIntr",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a6685c",
+  "lib": "Kernel_Library",
+  "nid": "A089ECA4",
+  "name": "sceKernelMemset",
+  "ret": "x",
+  "args": "xxx"
+ },
+ {
+  "addr": "08a66864",
+  "lib": "Kernel_Library",
+  "nid": "BEA46419",
+  "name": "sceKernelLockLwMutex",
+  "ret": "i",
+  "args": "xix"
+ },
+ {
+  "addr": "08a6686c",
+  "lib": "Kernel_Library",
+  "nid": "D13BDE95",
+  "name": "sceKernelCheckThreadStack",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66874",
+  "lib": "Kernel_Library",
+  "nid": "15B6446B",
+  "name": "sceKernelUnlockLwMutex",
+  "ret": "i",
+  "args": "xi"
+ },
+ {
+  "addr": "08a6687c",
+  "lib": "Kernel_Library",
+  "nid": "1839852A",
+  "name": "sceKernelMemcpy",
+  "ret": "x",
+  "args": "xxx"
+ },
+ {
+  "addr": "08a66884",
+  "lib": "Kernel_Library",
+  "nid": "1FC64E09",
+  "name": "sceKernelLockLwMutexCB",
+  "ret": "i",
+  "args": "xix"
+ },
+ {
+  "addr": "08a6688c",
+  "lib": "Kernel_Library",
+  "nid": "293B45B8",
+  "name": "sceKernelGetThreadId",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66894",
+  "lib": "Kernel_Library",
+  "nid": "5F10D406",
+  "name": "sceKernelCpuResumeIntr",
+  "ret": "v",
+  "args": "x"
+ },
+ {
+  "addr": "08a6689c",
+  "lib": "LoadExecForUser",
+  "nid": "05572A5F",
+  "name": "sceKernelExitGame",
+  "ret": "v",
+  "args": ""
+ },
+ {
+  "addr": "08a668a4",
+  "lib": "LoadExecForUser",
+  "nid": "4AC57943",
+  "name": "sceKernelRegisterExitCallback",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a668ac",
+  "lib": "ModuleMgrForUser",
+  "nid": "2E0911AA",
+  "name": "sceKernelUnloadModule",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a668b4",
+  "lib": "ModuleMgrForUser",
+  "nid": "D1FF982A",
+  "name": "sceKernelStopModule",
+  "ret": "x",
+  "args": "xxxxx"
+ },
+ {
+  "addr": "08a668bc",
+  "lib": "ModuleMgrForUser",
+  "nid": "D8B73127",
+  "name": "sceKernelGetModuleIdByAddress",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a668c4",
+  "lib": "ModuleMgrForUser",
+  "nid": "F0A26395",
+  "name": "sceKernelGetModuleId",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a668cc",
+  "lib": "ModuleMgrForUser",
+  "nid": "8F2DF740",
+  "name": "sceKernelStopUnloadSelfModuleWithStatus",
+  "ret": "x",
+  "args": "xxxxx"
+ },
+ {
+  "addr": "08a668d4",
+  "lib": "StdioForUser",
+  "nid": "172D316E",
+  "name": "sceKernelStdin",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a668dc",
+  "lib": "StdioForUser",
+  "nid": "A6BAB2E9",
+  "name": "sceKernelStdout",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a668e4",
+  "lib": "StdioForUser",
+  "nid": "F78BA90A",
+  "name": "sceKernelStderr",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a668ec",
+  "lib": "SysMemUserForUser",
+  "nid": "13A5ABEF",
+  "name": "sceKernelPrintf",
+  "ret": "i",
+  "args": "s"
+ },
+ {
+  "addr": "08a668f4",
+  "lib": "SysMemUserForUser",
+  "nid": "F77D77CB",
+  "name": "sceKernelSetCompilerVersion",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a668fc",
+  "lib": "SysMemUserForUser",
+  "nid": "1B4217BC",
+  "name": "sceKernelSetCompiledSdkVersion603_605",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a66904",
+  "lib": "SysMemUserForUser",
+  "nid": "237DBD4F",
+  "name": "sceKernelAllocPartitionMemory",
+  "ret": "i",
+  "args": "isixx"
+ },
+ {
+  "addr": "08a6690c",
+  "lib": "SysMemUserForUser",
+  "nid": "9D9A5BA1",
+  "name": "sceKernelGetBlockHeadAddr",
+  "ret": "x",
+  "args": "i"
+ },
+ {
+  "addr": "08a66914",
+  "lib": "SysMemUserForUser",
+  "nid": "B6D61D02",
+  "name": "sceKernelFreePartitionMemory",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a6691c",
+  "lib": "ThreadManForUser",
+  "nid": "BC80EC7C",
+  "name": "sceKernelExtendThreadStack",
+  "ret": "x",
+  "args": "xxx"
+ },
+ {
+  "addr": "08a66924",
+  "lib": "ThreadManForUser",
+  "nid": "CEADEB47",
+  "name": "sceKernelDelayThread",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a6692c",
+  "lib": "ThreadManForUser",
+  "nid": "D6DA4BA1",
+  "name": "sceKernelCreateSema",
+  "ret": "i",
+  "args": "sxiip"
+ },
+ {
+  "addr": "08a66934",
+  "lib": "ThreadManForUser",
+  "nid": "1FB15A32",
+  "name": "sceKernelSetEventFlag",
+  "ret": "x",
+  "args": "ix"
+ },
+ {
+  "addr": "08a6693c",
+  "lib": "ThreadManForUser",
+  "nid": "E81CAF8F",
+  "name": "sceKernelCreateCallback",
+  "ret": "i",
+  "args": "sxx"
+ },
+ {
+  "addr": "08a66944",
+  "lib": "ThreadManForUser",
+  "nid": "E9B3061E",
+  "name": "sceKernelSendMbx",
+  "ret": "i",
+  "args": "ix"
+ },
+ {
+  "addr": "08a6694c",
+  "lib": "ThreadManForUser",
+  "nid": "EA748E31",
+  "name": "sceKernelChangeCurrentThreadAttr",
+  "ret": "i",
+  "args": "xx"
+ },
+ {
+  "addr": "08a66954",
+  "lib": "ThreadManForUser",
+  "nid": "EDBA5844",
+  "name": "sceKernelDeleteCallback",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a6695c",
+  "lib": "ThreadManForUser",
+  "nid": "EF9E4C70",
+  "name": "sceKernelDeleteEventFlag",
+  "ret": "x",
+  "args": "i"
+ },
+ {
+  "addr": "08a66964",
+  "lib": "ThreadManForUser",
+  "nid": "F3986382",
+  "name": "sceKernelReceiveMbxCB",
+  "ret": "i",
+  "args": "ixx"
+ },
+ {
+  "addr": "08a6696c",
+  "lib": "ThreadManForUser",
+  "nid": "F475845D",
+  "name": "sceKernelStartThread",
+  "ret": "i",
+  "args": "iix"
+ },
+ {
+  "addr": "08a66974",
+  "lib": "ThreadManForUser",
+  "nid": "278C0DF5",
+  "name": "sceKernelWaitThreadEnd",
+  "ret": "i",
+  "args": "ix"
+ },
+ {
+  "addr": "08a6697c",
+  "lib": "ThreadManForUser",
+  "nid": "28B6489C",
+  "name": "sceKernelDeleteSema",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a66984",
+  "lib": "ThreadManForUser",
+  "nid": "369ED59D",
+  "name": "sceKernelGetSystemTimeLow",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a6698c",
+  "lib": "ThreadManForUser",
+  "nid": "0D81716A",
+  "name": "sceKernelPollMbx",
+  "ret": "i",
+  "args": "ix"
+ },
+ {
+  "addr": "08a66994",
+  "lib": "ThreadManForUser",
+  "nid": "3F53E640",
+  "name": "sceKernelSignalSema",
+  "ret": "i",
+  "args": "ii"
+ },
+ {
+  "addr": "08a6699c",
+  "lib": "ThreadManForUser",
+  "nid": "402FCF22",
+  "name": "sceKernelWaitEventFlag",
+  "ret": "i",
+  "args": "ixxpp"
+ },
+ {
+  "addr": "08a669a4",
+  "lib": "ThreadManForUser",
+  "nid": "446D8DE6",
+  "name": "sceKernelCreateThread",
+  "ret": "i",
+  "args": "sxxixx"
+ },
+ {
+  "addr": "08a669ac",
+  "lib": "ThreadManForUser",
+  "nid": "55C20A00",
+  "name": "sceKernelCreateEventFlag",
+  "ret": "i",
+  "args": "sxxx"
+ },
+ {
+  "addr": "08a669b4",
+  "lib": "ThreadManForUser",
+  "nid": "60107536",
+  "name": "sceKernelDeleteLwMutex",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a669bc",
+  "lib": "ThreadManForUser",
+  "nid": "68DA9E36",
+  "name": "sceKernelDelayThreadCB",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a669c4",
+  "lib": "ThreadManForUser",
+  "nid": "6D212BAC",
+  "name": "sceKernelWaitSemaCB",
+  "ret": "i",
+  "args": "iix"
+ },
+ {
+  "addr": "08a669cc",
+  "lib": "ThreadManForUser",
+  "nid": "809CE29B",
+  "name": "sceKernelExitDeleteThread",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a669d4",
+  "lib": "ThreadManForUser",
+  "nid": "812346E4",
+  "name": "sceKernelClearEventFlag",
+  "ret": "x",
+  "args": "ix"
+ },
+ {
+  "addr": "08a669dc",
+  "lib": "ThreadManForUser",
+  "nid": "8125221D",
+  "name": "sceKernelCreateMbx",
+  "ret": "i",
+  "args": "sxx"
+ },
+ {
+  "addr": "08a669e4",
+  "lib": "ThreadManForUser",
+  "nid": "82BC5777",
+  "name": "sceKernelGetSystemTimeWide",
+  "ret": "X",
+  "args": ""
+ },
+ {
+  "addr": "08a669ec",
+  "lib": "ThreadManForUser",
+  "nid": "840E8133",
+  "name": "sceKernelWaitThreadEndCB",
+  "ret": "i",
+  "args": "ix"
+ },
+ {
+  "addr": "08a669f4",
+  "lib": "ThreadManForUser",
+  "nid": "86255ADA",
+  "name": "sceKernelDeleteMbx",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a669fc",
+  "lib": "ThreadManForUser",
+  "nid": "9FA03CD3",
+  "name": "sceKernelDeleteThread",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a66a04",
+  "lib": "ThreadManForUser",
+  "nid": "AA73C935",
+  "name": "sceKernelExitThread",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a66a0c",
+  "lib": "ThreadManForUser",
+  "nid": "19CFF145",
+  "name": "sceKernelCreateLwMutex",
+  "ret": "i",
+  "args": "xsxix"
+ },
+ {
+  "addr": "08a66a14",
+  "lib": "UtilsForUser",
+  "nid": "71EC4271",
+  "name": "sceKernelLibcGettimeofday",
+  "ret": "x",
+  "args": "xx"
+ },
+ {
+  "addr": "08a66a1c",
+  "lib": "UtilsForUser",
+  "nid": "79D1C3FA",
+  "name": "sceKernelDcacheWritebackAll",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66a24",
+  "lib": "UtilsForUser",
+  "nid": "91E4F6A7",
+  "name": "sceKernelLibcClock",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a66a2c",
+  "lib": "UtilsForUser",
+  "nid": "B435DEC5",
+  "name": "sceKernelDcacheWritebackInvalidateAll",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66a34",
+  "lib": "UtilsForUser",
+  "nid": "C2DF770E",
+  "name": "sceKernelIcacheInvalidateRange",
+  "ret": "?",
+  "args": ""
+ },
+ {
+  "addr": "08a66a3c",
+  "lib": "UtilsForUser",
+  "nid": "27CC57F0",
+  "name": "sceKernelLibcTime",
+  "ret": "?",
+  "args": ""
+ },
+ {
+  "addr": "08a66a44",
+  "lib": "UtilsForUser",
+  "nid": "3EE30821",
+  "name": "sceKernelDcacheWritebackRange",
+  "ret": "?",
+  "args": ""
+ },
+ {
+  "addr": "08a66a4c",
+  "lib": "sceSuspendForUser",
+  "nid": "090CCB3F",
+  "name": "sceKernelPowerTick",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a66a54",
+  "lib": "sceSuspendForUser",
+  "nid": "3E0271D3",
+  "name": "sceKernelVolatileMemLock",
+  "ret": "i",
+  "args": "ixx"
+ },
+ {
+  "addr": "08a66a5c",
+  "lib": "sceSuspendForUser",
+  "nid": "A569E425",
+  "name": "sceKernelVolatileMemUnlock",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a66a64",
+  "lib": "sceCtrl",
+  "nid": "1F4011E6",
+  "name": "sceCtrlSetSamplingMode",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66a6c",
+  "lib": "sceCtrl",
+  "nid": "1F803938",
+  "name": "sceCtrlReadBufferPositive",
+  "ret": "i",
+  "args": "xx"
+ },
+ {
+  "addr": "08a66a74",
+  "lib": "sceCtrl",
+  "nid": "6A2774F3",
+  "name": "sceCtrlSetSamplingCycle",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66a7c",
+  "lib": "sceDisplay",
+  "nid": "0E20F177",
+  "name": "sceDisplaySetMode",
+  "ret": "x",
+  "args": "iii"
+ },
+ {
+  "addr": "08a66a84",
+  "lib": "sceDisplay",
+  "nid": "289D82FE",
+  "name": "sceDisplaySetFrameBuf",
+  "ret": "i",
+  "args": "xiii"
+ },
+ {
+  "addr": "08a66a8c",
+  "lib": "sceDisplay",
+  "nid": "46F186C3",
+  "name": "sceDisplayWaitVblankStartCB",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66a94",
+  "lib": "sceDisplay",
+  "nid": "77ED8B3A",
+  "name": "sceDisplayWaitVblankStartMultiCB",
+  "ret": "i",
+  "args": "i"
+ },
+ {
+  "addr": "08a66a9c",
+  "lib": "sceDisplay",
+  "nid": "984C27E7",
+  "name": "sceDisplayWaitVblankStart",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66aa4",
+  "lib": "sceDisplay",
+  "nid": "9C6EAAD7",
+  "name": "sceDisplayGetVcount",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66aac",
+  "lib": "sceGe_user",
+  "nid": "03444EB4",
+  "name": "sceGeListSync",
+  "ret": "x",
+  "args": "xx"
+ },
+ {
+  "addr": "08a66ab4",
+  "lib": "sceGe_user",
+  "nid": "05DB22CE",
+  "name": "sceGeUnsetCallback",
+  "ret": "i",
+  "args": "x"
+ },
+ {
+  "addr": "08a66abc",
+  "lib": "sceGe_user",
+  "nid": "1C0D95A6",
+  "name": "sceGeListEnQueueHead",
+  "ret": "x",
+  "args": "xxip"
+ },
+ {
+  "addr": "08a66ac4",
+  "lib": "sceGe_user",
+  "nid": "1F6752AD",
+  "name": "sceGeEdramGetSize",
+  "ret": "x",
+  "args": ""
+ },
+ {
+  "addr": "08a66acc",
+  "lib": "sceGe_user",
+  "nid": "4C06E472",
+  "name": "sceGeContinue",
+  "ret": "i",
+  "args": ""
+ },
+ {
+  "addr": "08a66ad4",
+  "lib": "sceGe_user",
+  "nid": "A4FC06A4",
+  "name": "sceGeSetCallback",
+  "ret": "i",
+  "args": "p"
+ },
+ {
+  "addr": "08a66adc",
+  "lib": "sceGe_user",
+  "nid": "AB49E76A",
+  "name": "sceGeListEnQueue",
+  "ret": "x",
+  "args": "xxip"
+ },
+ {
+  "addr": "08a66ae4",
+  "lib": "sceGe_user",
+  "nid": "B287BD61",
+  "name": "sceGeDrawSync",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66aec",
+  "lib": "sceGe_user",
+  "nid": "B448EC0D",
+  "name": "sceGeBreak",
+  "ret": "i",
+  "args": "xx"
+ },
+ {
+  "addr": "08a66af4",
+  "lib": "sceGe_user",
+  "nid": "B77905EA",
+  "name": "sceGeEdramSetAddrTranslation",
+  "ret": "x",
+  "args": "x"
+ },
+ {
+  "addr": "08a66afc",
+  "lib": "sceGe_user",
+  "nid": "E0D68148",
+  "name": "sceGeListUpdateStallAddr",
+  "ret": "i",
+  "args": "xx"
+ },
+ {
+  "addr": "08a66b04",
+  "lib": "sceGe_user",
+  "nid": "E47E40E4",
+  "name": "sceGeEdramGetAddr",
+  "ret": "x",
+  "args": ""
+ }
+]
