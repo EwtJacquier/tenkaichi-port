@@ -27,6 +27,16 @@ extern uint8_t *rt_mem;
 #define MP(a) (rt_mem + ((uint32_t)(a) & MEM_MASK))
 // VFPU loads/stores emitted inline by tools/recomp.py (register k of v[], the word at guest address a).
 #define VLD(k, a) do { uint32_t t_ = M32(a); memcpy(&c->v[k], &t_, 4); } while (0)
+// A VFPU register's 32 bits (inline integer packing, vi2s and kin)
+static inline uint32_t rt_vbits(const CPU *c, int k) { uint32_t u; memcpy(&u, &c->v[k], 4); return u; }
+// vf2in / vf2iz / vf2iu / vf2id (mode 0..3): x * 2^imm rounded to an int32, saturated, NaN to the
+// largest (runtime/vfpu.c does the same in double: the scaling is exact there)
+static inline uint32_t rt_vf2i(float s, int imm, int mode) {
+	double x = (double)s * (double)(1ull << imm), r;
+	r = mode == 0 ? __builtin_nearbyint(x) : mode == 1 ? __builtin_trunc(x) : mode == 2 ? __builtin_ceil(x) : __builtin_floor(x);
+	int32_t iv = x != x ? 0x7FFFFFFF : r >= 2147483647.0 ? 0x7FFFFFFF : r <= -2147483648.0 ? (int32_t)0x80000000u : (int32_t)r;
+	return (uint32_t)iv;
+}
 // No VFPU prefix is set (S and T the identity swizzle, D neither saturating nor masking): the inline
 // arithmetic forms apply, else the runtime does the instruction with its prefixes.
 #define VPFX_IDENT (c->vfpu_ctrl[0] == 0xE4u && c->vfpu_ctrl[1] == 0xE4u && c->vfpu_ctrl[2] == 0u)
@@ -34,12 +44,23 @@ extern uint8_t *rt_mem;
 // run and any difference in the registers is reported (rt_vfpu_mismatch).
 void rt_vfpu_mismatch(uint32_t pc, uint32_t op, const float *inline_v, const float *runtime_v);
 float rt_vdot4(float a0, float a1, float a2, float a3, float b0, float b1, float b2, float b3);  // vfpu.c: vmmul's exact dot
+void rt_vfpu_ctrl_mismatch(uint32_t pc, uint32_t op, const uint32_t *inline_ctrl, const uint32_t *runtime_ctrl);
+// The prefixes are these (VFASTP: set by the vpfx instructions right before), and none once used.
+#define VPFX_IS(s, t, d) (c->vfpu_ctrl[0] == (s) && c->vfpu_ctrl[1] == (t) && c->vfpu_ctrl[2] == (d))
+#define VPFX_EAT() (c->vfpu_ctrl[0] = 0xE4u, c->vfpu_ctrl[1] = 0xE4u, c->vfpu_ctrl[2] = 0u)
 #ifdef VFPU_SELFCHECK
-#define VFAST(pc, op, body) do { if (VPFX_IDENT) { float v0_[128], v1_[128]; memcpy(v0_, c->v, sizeof v0_); body \
-	memcpy(v1_, c->v, sizeof v1_); memcpy(c->v, v0_, sizeof v0_); rt_vfpu(c, pc, op); \
-	if (memcmp(v1_, c->v, sizeof v1_)) rt_vfpu_mismatch(pc, op, v1_, c->v); } else rt_vfpu(c, pc, op); } while (0)
+#define VFPU_CHECKED(pc, op, body) do { float v0_[128], v1_[128]; uint32_t k0_[16], k1_[16]; \
+	memcpy(v0_, c->v, sizeof v0_); memcpy(k0_, c->vfpu_ctrl, sizeof k0_); body \
+	memcpy(v1_, c->v, sizeof v1_); memcpy(k1_, c->vfpu_ctrl, sizeof k1_); memcpy(c->v, v0_, sizeof v0_); \
+	memcpy(c->vfpu_ctrl, k0_, sizeof k0_); rt_vfpu(c, pc, op); \
+	if (memcmp(v1_, c->v, sizeof v1_)) rt_vfpu_mismatch(pc, op, v1_, c->v); \
+	if (memcmp(k1_, c->vfpu_ctrl, sizeof k1_)) rt_vfpu_ctrl_mismatch(pc, op, k1_, c->vfpu_ctrl); } while (0)
+#define VFAST(pc, op, body) do { if (VPFX_IDENT) VFPU_CHECKED(pc, op, body); else rt_vfpu(c, pc, op); } while (0)
+#define VFASTP(pc, op, ps, pt, pd, body) do { if (VPFX_IS(ps, pt, pd)) VFPU_CHECKED(pc, op, { body VPFX_EAT(); }); \
+	else rt_vfpu(c, pc, op); } while (0)
 #else
 #define VFAST(pc, op, body) do { if (VPFX_IDENT) body else rt_vfpu(c, pc, op); } while (0)
+#define VFASTP(pc, op, ps, pt, pd, body) do { if (VPFX_IS(ps, pt, pd)) { body VPFX_EAT(); } else rt_vfpu(c, pc, op); } while (0)
 #endif
 #define VST(k, a) do { uint32_t t_; memcpy(&t_, &c->v[k], 4); M32(a) = t_; } while (0)
 #define M8(a) (*(uint8_t *)MP(a))

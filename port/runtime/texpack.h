@@ -23,6 +23,8 @@ uint64_t texpack_key(const uint32_t *px, int w, int iw, int ih);
 bool texpack_set_enabled(bool on);
 // The replacement for a texture decoded to px (w x h RGBA texels, rows of w), or -1.
 int texpack_find(const uint32_t *px, int w, int h);
+// The key and picture size of the pack's entry idx (0 if there is none).
+uint64_t texpack_entry_key(int idx, int *iw, int *ih);
 // Its pixels (malloc'ed; the caller frees them), *pw x *ph for the *iw x *ih texels it replaces.
 // NULL while the file is still being fetched (web), or for good when *failed is set.
 uint32_t *texpack_load(int idx, int *pw, int *ph, int *iw, int *ih, bool *failed);

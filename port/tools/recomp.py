@@ -195,9 +195,17 @@ def emit_simple(op, pc, unknown):
         sub = (op >> 23) & 7
         which, val = (0, op & 0xFFFFF) if sub < 2 else (1, op & 0xFFFFF) if sub < 4 else (2, op & 0xFFF)
         return f"c->vfpu_ctrl[{which}] = {val:#x}u;"
-    fast = vfpu_fast(op)
-    if fast:  # arithmetic as C while no prefix is set (else the runtime applies them)
+    if o == 0x12 and ((op >> 21) & 31) in (3, 7) and (op & 0xFF) < 128:  # mfv / mtv (prefixes play no part)
+        rt, k = (op >> 16) & 31, vfpu_regs(op & 0xFF, 1)[0]
+        if (op >> 21) & 31 == 3:
+            return f"{{ uint32_t t_; memcpy(&t_, &c->v[{k}], 4); c->r[{rt}] = t_; }}" if rt else "/* mfv to $zero */"
+        return f"memcpy(&c->v[{k}], &c->r[{rt}], 4);"
+    pfx = vfpu_prefixes_before(pc)
+    fast = vfpu_fast(op, pfx)
+    if fast and pfx == VPFX_NONE:  # arithmetic as C while no prefix is set (else the runtime applies them)
         return f"VFAST(0x{pc:08x}u, 0x{op:08x}u, {{ {fast} }});"
+    if fast:  # with the prefixes the vpfx instructions right before set, when they are those as it runs
+        return f"VFASTP(0x{pc:08x}u, 0x{op:08x}u, {pfx[0]:#x}u, {pfx[1]:#x}u, {pfx[2]:#x}u, {{ {fast} }});"
     if o in (0x12, 0x18, 0x19, 0x1B, 0x32, 0x34, 0x35, 0x36, 0x37, 0x3A, 0x3C, 0x3D, 0x3E, 0x3F):
         return f"rt_vfpu(c, 0x{pc:08x}u, 0x{op:08x}u);"
     unknown.append(f"{pc:08x} {op:08x} unhandled instruction")
@@ -235,22 +243,114 @@ def vfpu_mat(reg, n):
     return idx
 
 
-def vfpu_fast(op):
-    """C for the common VFPU arithmetic forms with neutral prefixes, computed exactly as
-    runtime/vfpu.c does (same operations in the same order, results stored after all reads); None
-    for the forms left to the runtime."""
+def VMMUL(MS, MT, MD, n, V, store):
+    """vmmul: each element the hardware's exact dot product (runtime/vfpu.c rt_vdot4)."""
+    dst, exprs = [], []
+    for a in range(n):
+        for b in range(n):
+            dst.append(MD[a * 4 + b])
+            xs = [V(MS[b * 4 + k]) if k < n else "0.f" for k in range(4)]
+            ys = [V(MT[a * 4 + k]) if k < n else "0.f" for k in range(4)]
+            exprs.append(f"rt_vdot4({', '.join(xs)}, {', '.join(ys)})")
+    return store(dst, exprs)
+
+
+CTX = None  # the program being translated (translate sets it): vfpu_prefixes_before reads back from pc
+
+
+def vfpu_half_bits(h):
+    """The float bits of a half float, as runtime/vfpu.c half_to_float makes them."""
+    sgn, e, m = (h >> 15) << 31, (h >> 10) & 31, h & 0x3FF
+    if e == 0:
+        if not m:
+            return sgn
+        return struct.unpack("<I", struct.pack("<f", (-1.0 if sgn else 1.0) * m * 2.0 ** -24))[0]
+    if e == 31:
+        return sgn | 0x7F800000 | (m << 13)
+    return sgn | ((e + 112) << 23) | (m << 13)
+
+
+VPFX_NONE = (0xE4, 0xE4, 0)  # the prefixes when none is set: S and T the identity swizzle, D nothing
+
+
+def vfpu_prefixes_before(pc):
+    """The prefixes that the vpfxs / vpfxt / vpfxd right before pc set (the nearest of each kind, up to
+    three back), the others as when none is set. Only a guess: the code checks it as it runs
+    (VFASTP), something may jump in between."""
+    ps, pt, pd = VPFX_NONE
+    seen = set()
+    for back in (4, 8, 12):
+        try:
+            op = CTX.word(pc - back)
+        except Exception:
+            break
+        if op >> 26 != 0x37 or ((op >> 23) & 7) >= 6:
+            break
+        kind = ((op >> 23) & 7) >> 1  # 0 S, 1 T, 2 D
+        if kind in seen:
+            continue
+        seen.add(kind)
+        if kind == 0:
+            ps = op & 0xFFFFF
+        elif kind == 1:
+            pt = op & 0xFFFFF
+        else:
+            pd = op & 0xFFF
+    return ps, pt, pd
+
+
+VCST = ["0.f", "3.40282347e38f", "1.41421356f", "0.70710678f", "1.12837917f", "0.63661977f", "0.31830989f",
+        "0.78539816f", "1.57079633f", "3.14159265f", "2.71828183f", "1.44269504f", "0.43429448f", "0.69314718f",
+        "2.30258509f", "6.28318531f", "0.52359878f", "0.30103000f", "3.32192809f", "0.86602540f"]
+PFX_CONSTS = ["0.f", "1.f", "2.f", "0.5f", "3.f", "(1.f / 3.f)", "0.25f", "(1.f / 6.f)"]
+
+
+def vfpu_fast(op, pfx=VPFX_NONE):
+    """C for the common VFPU forms, computed exactly as runtime/vfpu.c does (same operations in the
+    same order, results stored after all reads), with the prefixes pfx (S, T, D) applied as it
+    applies them (apply_st, write_vec); None for the forms left to the runtime."""
+    ps, pt, pd = pfx
+    plain = pfx == VPFX_NONE
     o = op >> 26
     vd, vs, vt = op & 0x7F, (op >> 8) & 0x7F, (op >> 16) & 0x7F
     n = (((op >> 7) & 1) | ((op >> 14) & 2)) + 1
     V = lambda k: f"c->v[{k}]"
 
-    def store(dst, exprs):
+    def lane(regs, p, i, m=None):  # lane i of a source with prefix p (apply_st: over its m lanes)
+        m = n if m is None else m
+        if p == 0xE4:
+            return V(regs[i])
+        sel, ab, cst, neg = (p >> (2 * i)) & 3, (p >> (8 + i)) & 1, (p >> (12 + i)) & 1, (p >> (16 + i)) & 1
+        if cst:
+            e = PFX_CONSTS[sel + (ab << 2)]
+        else:
+            e = V(regs[sel]) if sel < m else "0.f"
+            if ab:
+                e = f"fabsf({e})"
+        return f"(-{e})" if neg else e
+
+    def store(dst, exprs):  # the D prefix's saturation and write mask (write_vec)
         tmps = " ".join(f"float d{i}_ = {e};" for i, e in enumerate(exprs))
-        return tmps + " " + " ".join(f"{V(k)} = d{i}_;" for i, k in enumerate(dst))
+        writes = []
+        for i, k in enumerate(dst):
+            sat, mask = (pd >> (2 * i)) & 3, (pd >> (8 + i)) & 1
+            if mask:
+                continue
+            x = f"d{i}_"
+            if sat == 1:
+                x = f"({x} < 0 ? 0.f : ({x} > 1 ? 1.f : {x}))"
+            elif sat == 3:
+                x = f"({x} < -1 ? -1.f : ({x} > 1 ? 1.f : {x}))"
+            writes.append(f"{V(k)} = {x};")
+        return tmps + " " + " ".join(writes)
+
+    def store_bits(dst, exprs):  # 32-bit patterns into registers (no prefix: see the callers)
+        tmps = " ".join(f"uint32_t d{i}_ = {e};" for i, e in enumerate(exprs))
+        return tmps + " " + " ".join(f"memcpy(&{V(k)}, &d{i}_, 4);" for i, k in enumerate(dst))
 
     def elementwise(fmt):
         S, T, D = vfpu_regs(vs, n), vfpu_regs(vt, n), vfpu_regs(vd, n)
-        return store(D, [fmt.format(s=V(S[i]), t=V(T[i])) for i in range(n)])
+        return store(D, [fmt.format(s=lane(S, ps, i), t=lane(T, pt, i)) for i in range(n)])
 
     def chain(start, terms):  # ((start + a) + b) ... as float, like d += x
         e = start
@@ -258,7 +358,90 @@ def vfpu_fast(op):
             e = f"({e} + {t})"
         return e
 
+    B = lambda k: f"rt_vbits(c, {k})"  # a register's bits (cpu.h)
     sub = (op >> 23) & 7
+    if o == 0x37 and sub in (6, 7):  # viim / vfim: a constant (an integer, a half float)
+        k = vfpu_regs((op >> 16) & 0x7F, 1)[0]
+        if sub == 6:
+            val = float(op & 0xFFFF if not op & 0x8000 else (op & 0xFFFF) - 0x10000)
+            bits = struct.unpack("<I", struct.pack("<f", val))[0]
+        else:
+            bits = vfpu_half_bits(op & 0xFFFF)
+        if pd == 0:
+            return store_bits([k], [f"{bits:#010x}u"])
+        f = struct.unpack("<f", struct.pack("<I", bits))[0]
+        if f != f or f in (float("inf"), float("-inf")):
+            return None
+        return store([k], [f"{float.hex(f)}f" if f else ("-0.f" if bits >> 31 else "0.f")])
+    if o == 0x1B and sub == 0:  # vcmp: each lane's condition into CC bits 0-3, any (bit 4), all (bit 5)
+        cond = op & 0xF
+        S, T = vfpu_regs(vs, n), vfpu_regs(vt, n)
+        forms = {0: "0", 1: "{s} == {t}", 2: "{s} < {t}", 3: "{s} <= {t}", 4: "1", 5: "{s} != {t}", 6: "{s} >= {t}",
+                 7: "{s} > {t}", 8: "{s} == 0.f", 9: "isnan({s})", 10: "isinf({s})", 11: "(isnan({s}) || isinf({s}))",
+                 12: "{s} != 0.f", 13: "!isnan({s})", 14: "!isinf({s})", 15: "!(isnan({s}) || isinf({s}))"}
+        lanes = " ".join(f"uint32_t b{i}_ = ({forms[cond].format(s=lane(S, ps, i), t=lane(T, pt, i))}) ? 1u : 0u;"
+                         for i in range(n))
+        bits = " | ".join(f"b{i}_ << {i}" for i in range(n))
+        return (f"{lanes} c->vfpu_ctrl[VFPU_CTRL_CC] = (c->vfpu_ctrl[VFPU_CTRL_CC] & ~0x3Fu) | {bits} | "
+                f"({' | '.join(f'b{i}_' for i in range(n))}) << 4 | ({' & '.join(f'b{i}_' for i in range(n))}) << 5;")
+    if o == 0x34 and ((op >> 21) & 31) == 1 and ((op >> 16) & 31) >= 24:  # packing and unpacking integers
+        if not plain:
+            return None
+        fn = (op >> 16) & 31
+        S = vfpu_regs(vs, n)
+        u = [B(S[i]) if i < n else "0u" for i in range(4)]
+        if fn in (24, 25):  # vuc2i / vc2i: each byte of the first to the top of a word
+            w = [f"(({u[0]} >> {8 * i}) & 0xFFu) * 0x01010101u >> 1" if fn == 24 else f"(({u[0]} >> {8 * i}) & 0xFFu) << 24"
+                 for i in range(4)]
+        elif fn in (26, 27):  # vus2i / vs2i: each halfword to the top of a word
+            w = []
+            for i in range(2 if n >= 2 else 1):
+                w += [f"({u[i]} & 0xFFFFu) << 15", f"({u[i]} & 0xFFFF0000u) >> 1"] if fn == 26 else \
+                     [f"({u[i]} & 0xFFFFu) << 16", f"{u[i]} & 0xFFFF0000u"]
+        elif fn in (28, 29):  # vi2uc / vi2c: four words to their top bytes
+            parts = [f"((uint32_t)(((int32_t){u[i]} < 0 ? 0 : (int32_t){u[i]}) >> 23) & 0xFFu) << {8 * i}" if fn == 28
+                     else f"({u[i]} >> 24) << {8 * i}" for i in range(4)]
+            w = [" | ".join(parts)]
+        else:  # vi2us / vi2s: pairs of words to halfwords
+            w = []
+            for i in range((n + 1) // 2):
+                lo, hi = u[2 * i], u[2 * i + 1]
+                w.append(f"((uint32_t)(((int32_t){lo} < 0 ? 0 : (int32_t){lo}) >> 15) & 0xFFFFu) | "
+                         f"((uint32_t)(((int32_t){hi} < 0 ? 0 : (int32_t){hi}) >> 15) & 0xFFFFu) << 16" if fn == 30
+                         else f"({lo} >> 16) | ({hi} & 0xFFFF0000u)")
+        return store_bits(vfpu_regs(vd, len(w)), w)
+    if o == 0x34 and 16 <= ((op >> 21) & 31) <= 20:  # vf2in / vf2iz / vf2iu / vf2id, vi2f: scaled by 2^imm
+        if not plain:
+            return None
+        kind, imm = (op >> 21) & 31, (op >> 16) & 31
+        S, D = vfpu_regs(vs, n), vfpu_regs(vd, n)
+        if kind == 20:  # exact: an int's float times a power of two stays normal (ldexpf's result)
+            return store(D, [f"(float)(int32_t){B(S[i])} * 0x1p-{imm}f" for i in range(n)])
+        return store_bits(D, [f"rt_vf2i({V(S[i])}, {imm}, {kind - 16})" for i in range(n)])
+    if o == 0x34 and ((op >> 21) & 31) == 3:  # vcst: a constant in every lane
+        fn = (op >> 16) & 31
+        return store(vfpu_regs(vd, n), [VCST[fn] if fn < 20 else "0.f" for _ in range(n)])
+    if o == 0x34 and ((op >> 21) & 31) == 21:  # vcmov: s (S prefix) where the condition holds, else d (T prefix)
+        tf, imm3 = (op >> 19) & 1, ((op >> 16) & 31) & 7
+        S, D = vfpu_regs(vs, n), vfpu_regs(vd, n)
+        cc = "c->vfpu_ctrl[VFPU_CTRL_CC]"
+        exprs = []
+        for i in range(n):
+            s_, d_ = lane(S, ps, i), lane(D, pt, i)
+            if imm3 < 6:
+                exprs.append(f"(({cc} >> {imm3}) & 1u) == {int(not tf)}u ? {s_} : {d_}")
+            elif imm3 == 6:
+                exprs.append(f"(({cc} >> {i}) & 1u) == {int(not tf)}u ? {s_} : {d_}")
+            else:
+                exprs.append(d_)
+        return store(D, exprs)
+    if o == 0x3C and ((op >> 21) & 31) == 29:  # vrot: a quarter-turn angle's sine and cosine into chosen lanes
+        imm = (op >> 16) & 31
+        sl, cl = (imm >> 2) & 3, imm & 3
+        a = lane(vfpu_regs(vs, 1), ps, 0, 1)
+        sn = f"{'-' if imm & 0x10 else ''}sinf({a} * (float)M_PI_2)"
+        cs = f"cosf({a} * (float)M_PI_2)"
+        return store(vfpu_regs(vd, n), [cs if i == cl else sn if i == sl or sl == cl else "0.f" for i in range(n)])
     if o == 0x18 and sub in (0, 1, 7):
         return elementwise({0: "{s} + {t}", 1: "{s} - {t}", 7: "{s} / {t}"}[sub])
     if o == 0x19:
@@ -266,12 +449,13 @@ def vfpu_fast(op):
             return elementwise("{s} * {t}")
         S, T = vfpu_regs(vs, n), vfpu_regs(vt, n)
         if sub == 1:  # vdot
-            return store(vfpu_regs(vd, 1), [chain("0.f", [f"{V(S[i])} * {V(T[i])}" for i in range(n)])])
-        if sub == 2:  # vscl
+            return store(vfpu_regs(vd, 1), [chain("0.f", [f"{lane(S, ps, i)} * {lane(T, pt, i)}" for i in range(n)])])
+        if sub == 2:  # vscl (the runtime reads t's first lane as it is, no T prefix)
             t0 = vfpu_regs(vt, 1)[0]
-            return store(vfpu_regs(vd, n), [f"{V(S[i])} * {V(t0)}" for i in range(n)])
+            return store(vfpu_regs(vd, n), [f"{lane(S, ps, i)} * {V(t0)}" for i in range(n)])
         if sub == 4:  # vhdp
-            return store(vfpu_regs(vd, 1), [chain(V(T[n - 1]), [f"{V(S[i])} * {V(T[i])}" for i in range(n - 1)])])
+            return store(vfpu_regs(vd, 1), [chain(lane(T, pt, n - 1),
+                                                  [f"{lane(S, ps, i)} * {lane(T, pt, i)}" for i in range(n - 1)])])
         return None
     if o == 0x1B and sub in (2, 3, 6, 7):
         return elementwise({2: "fminf({s}, {t})", 3: "fmaxf({s}, {t})", 6: "({s} >= {t} ? 1.f : 0.f)",
@@ -280,14 +464,19 @@ def vfpu_fast(op):
         fn = (op >> 16) & 31
         S, D = vfpu_regs(vs, n), vfpu_regs(vd, n)
         forms = {0x00: "{s}", 0x01: "fabsf({s})", 0x02: "-{s}", 0x06: "0.f", 0x07: "1.f", 0x10: "1.f / {s}",
-                 0x16: "sqrtf({s})"}
+                 0x16: "sqrtf({s})", 0x04: "({s} <= 0.f ? 0.f : {s} > 1.f ? 1.f : {s})",
+                 0x05: "({s} <= -1.f ? -1.f : {s} > 1.f ? 1.f : {s})", 0x11: "1.f / sqrtf({s})",
+                 0x12: "sinf({s} * (float)M_PI_2)", 0x13: "cosf({s} * (float)M_PI_2)", 0x14: "exp2f({s})",
+                 0x15: "log2f({s})", 0x17: "asinf({s}) / (float)M_PI_2", 0x18: "-1.f / {s}"}
         if fn == 0x03:  # vidt
             one = vd & (3 if n >= 3 else 1)
             return store(D, ["1.f" if i == one else "0.f" for i in range(n)])
         if fn in forms:
-            return store(D, [forms[fn].format(s=V(S[i])) for i in range(n)])
+            return store(D, [forms[fn].format(s=lane(S, ps, i)) for i in range(n)])
         return None
     if o == 0x3C:
+        if not plain:
+            return None
         idx = (op >> 21) & 31
         group = idx >> 2
         if idx == 28:  # vmmov / vmidt / vmzero / vmone
@@ -302,16 +491,8 @@ def vfpu_fast(op):
                 return None
             return store([MD[j * 4 + i] for j, i in cells],
                          [("1.f" if i == j else "0.f") if fn == 3 else const[fn] for j, i in cells])
-        if group == 0:  # vmmul: each element the hardware's exact dot product (runtime/vfpu.c rt_vdot4)
-            MS, MT, MD = vfpu_mat(vs, n), vfpu_mat(vt, n), vfpu_mat(vd, n)
-            dst, exprs = [], []
-            for a in range(n):
-                for b in range(n):
-                    dst.append(MD[a * 4 + b])
-                    xs = [V(MS[b * 4 + k]) if k < n else "0.f" for k in range(4)]
-                    ys = [V(MT[a * 4 + k]) if k < n else "0.f" for k in range(4)]
-                    exprs.append(f"rt_vdot4({', '.join(xs)}, {', '.join(ys)})")
-            return store(dst, exprs)
+        if group == 0:  # vmmul
+            return VMMUL(vfpu_mat(vs, n), vfpu_mat(vt, n), vfpu_mat(vd, n), n, V, store)
         if group in (1, 2, 3):  # vtfmN / vhtfmN
             ins = group
             MS = vfpu_mat(vs, ins + 1)
@@ -662,6 +843,8 @@ def share_code(ctx, funcs, imports, text_lo, text_hi, extra_entries=(), jumptabl
 
 
 def translate(ctx, func, funcs_by_entry, jumptables, report):
+    global CTX
+    CTX = ctx
     entry = func["entry"]
     addrs = sorted({a for lo, hi in func["ranges"] for a in range(lo, hi + 1, 4)})
     inset = set(addrs)

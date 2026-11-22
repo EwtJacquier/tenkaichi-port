@@ -23,6 +23,14 @@
 #include "platform.h"
 #include "rt.h"
 
+// What differs from game to game. This file is the same in every port (its switches' prefix
+// aside, DBZ_ here); only these lines are the game's own.
+#define GE_STENCIL_ALPHA 0       // the framebuffer's alpha made from its stencil before it is read (DBZ_STENCIL_ALPHA)
+#define GE_FBO_CLUT_SKIP 1       // draws reading a framebuffer as a CLUT texture left out (DBZ_FBO_CLUT=1 draws them)
+#define GE_BLEND_DOUBLE_ALPHA 1  // the double-alpha blend factors double the alpha (1) or the source color (0)
+#define GE_TILES_PACK_KEY 0      // DBZ_TILES lines name the texture pack's key and picture size (1) or the catalog's (0)
+#define GE_TEXCAT_WHERE 1        // DBZ_TEXCATALOG lines "key w h fmt addr where frame stride" (1) or "... scene frame" (0)
+
 // ---------------------------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------------------------
@@ -117,6 +125,11 @@ typedef struct {
 	uint32_t *look;    // its pixels while the pack is still to be looked up for them (look_poll)
 	uint64_t look_key; // ... their content (the memo's key) and whether text.h redraws them
 	bool look_claimed;
+	uint32_t *up_px;   // a big replacement going to the GPU a strip a frame (pack_poll), into up_tex
+	GLuint up_tex;
+	int up_W, up_H, up_row, up_s;
+	uint64_t tile_key;  // DBZ_TILES with GE_TILES_PACK_KEY: the pack's key of its picture, the picture's size
+	int tile_iw, tile_ih;
 	uint64_t cat_key;  // DBZ_TEXCATALOG: its key in the catalog (0: not catalogued, contents that keep changing)
 } TexEntry;
 #define MAX_TEX 512
@@ -315,7 +328,8 @@ static const char *FS =
 	"    if (u_fogEnable == 1) c.rgb = mix(u_fogColor, c.rgb, clamp(v_fog, 0.0, 1.0));\n"
 	"  }\n"
 	"  o = clamp(c, 0.0, 1.0);\n"
-	"  if (u_blendDouble == 1) o.a = min(o.a * 2.0, 1.0);\n"
+	"  if (u_blendDouble == 1) o.rgb = min(o.rgb * 2.0, vec3(1.0));\n"  // src * 2a as (2 src) * a
+	"  else if (u_blendDouble == 2) o.a = min(o.a * 2.0, 1.0);\n"
 	"}\n";
 
 static GLuint compile(GLenum type, const char *src) {
@@ -701,6 +715,11 @@ void ge_hitch(uint64_t frame_us) {
 // scale; texels past the picture are the texture's own (orig, w x h, the game's: a picture that is
 // a corner of its texture, the lab having left out what the game never drew there), else repeat
 // its last column and row. False if the GPU can't hold it.
+// A big one (PACK_STRIPS_FROM texels and up: a 2048x2048 picture is 16 MB) goes to the GPU over
+// several frames instead (pack_poll): sent at once it held a frame up for 25-40 ms in the browser.
+#define PACK_STRIPS_FROM (1024 * 1024)
+#define PACK_STRIP_TEXELS (512 * 1024)
+static void gl_invalidate(void);
 static bool pack_upload(TexEntry *e, const uint32_t *px, int pw, int ph, int iw, int ih, int w, int h, const uint32_t *orig) {
 	static GLint max_size;
 	if (!max_size) glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_size);
@@ -717,6 +736,18 @@ static bool pack_upload(TexEntry *e, const uint32_t *px, int pw, int ph, int iw,
 			else for (int x = 0; x < pw; x++) d[x] = own[x / s];
 			for (int x = pw; x < W; x++) d[x] = own ? own[x / s] : row[pw - 1];
 		}
+	}
+	if ((int64_t)W * H >= PACK_STRIPS_FROM) {  // big: a strip a frame, the original shown meanwhile
+		if (!full) full = malloc((size_t)W * H * 4), memcpy(full, px, (size_t)W * H * 4);
+		glGenTextures(1, &e->up_tex);
+		glBindTexture(GL_TEXTURE_2D, e->up_tex);
+		// (storage that can be filled again: the texture becomes the cache slot's, and the slot
+		// later takes other textures' pixels with glTexImage2D. Made with glTexStorage2D it was
+		// immutable, those uploads failed, and the slot went on showing this picture in their place)
+		TIMED_DO(gpu, glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, W, H, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
+		gl_invalidate();
+		e->up_px = full, e->up_W = W, e->up_H = H, e->up_row = 0, e->up_s = s;
+		return true;
 	}
 	if (!e->tex) glGenTextures(1, &e->tex);
 	glBindTexture(GL_TEXTURE_2D, e->tex);
@@ -746,6 +777,31 @@ static void pack_poll_(TexEntry *e) {
 	if (spent_us >= PACK_FRAME_US) return;
 	e->pack_frame = frame_no;
 	uint64_t t0 = rt_now_us();
+	if (e->up_px) {  // a big one on its way: its next strips, within this frame's time
+		batch_flush();
+		glBindTexture(GL_TEXTURE_2D, e->up_tex);
+		int rows = PACK_STRIP_TEXELS / e->up_W > 0 ? PACK_STRIP_TEXELS / e->up_W : 1;
+		while (e->up_row < e->up_H && spent_us + (rt_now_us() - t0) < PACK_FRAME_US) {
+			int n = e->up_H - e->up_row < rows ? e->up_H - e->up_row : rows;
+			TIMED_DO(gpu, glTexSubImage2D(GL_TEXTURE_2D, 0, 0, e->up_row, e->up_W, n, GL_RGBA, GL_UNSIGNED_BYTE,
+			                              e->up_px + (size_t)e->up_row * e->up_W));
+			e->up_row += n;
+		}
+		if (e->up_row >= e->up_H) {  // all there: the mipmaps, then it takes the original's place
+			TIMED_DO(mip, glGenerateMipmap(GL_TEXTURE_2D));
+			if (e->tex) glDeleteTextures(1, &e->tex);
+			e->tex = e->up_tex, e->up_tex = 0;
+			free(e->up_px);
+			e->up_px = NULL;
+			e->scale = (float)e->up_s;
+			e->mips = true;
+			e->pack1 = 0;
+			prof.n_pack++;
+		}
+		gl_invalidate();
+		spent_us += rt_now_us() - t0;
+		return;
+	}
 	int pw, ph, iw, ih;
 	bool failed;
 	uint32_t *px = TIMED(read, texpack_load(e->pack1 - 1, &pw, &ph, &iw, &ih, &failed));
@@ -774,7 +830,7 @@ static void pack_poll_(TexEntry *e) {
 	free(e->orig);
 	e->orig = NULL;
 	free(px);
-	e->pack1 = 0;
+	if (!e->up_px) e->pack1 = 0;  // (a big one keeps coming here for its strips)
 	uint64_t t2 = rt_now_us();
 	spent_us += t2 - t0;
 	static int slow_log = -1;  // DBZ_TEXPACK_SLOW=ms: the pictures that took longer than that
@@ -840,12 +896,12 @@ static void look_poll(TexEntry *e) {
 // is read as a texture: games mark pixels in the stencil and read them back as alpha (a glow that
 // takes only the pixels whose alpha has a bit of the glowing objects' stencil value). The alpha is
 // cleared, then each stencil bit adds its value where it is set: 9 full-screen passes, color
-// untouched. Off unless DBZ_STENCIL_ALPHA=1: a game reads its framebuffer only for the colors (the
-// bloom), and with these passes its fighters came out striped and see-through at high render
-// scales (the scenery's railings and lamps through them).
+// untouched (a glow that takes only the pixels whose alpha has one bit of it). GE_STENCIL_ALPHA
+// (DBZ_STENCIL_ALPHA): off where a game reads its framebuffer only for the colors (a bloom): there
+// its fighters came out striped and see-through at high render scales.
 static void fbo_alpha_from_stencil(Fbo *f) {
 	static int on = -1;
-	if (on < 0) on = getenv("DBZ_STENCIL_ALPHA") && atoi(getenv("DBZ_STENCIL_ALPHA")) != 0;
+	if (on < 0) on = getenv("DBZ_STENCIL_ALPHA") ? atoi(getenv("DBZ_STENCIL_ALPHA")) != 0 : GE_STENCIL_ALPHA;
 	if (!on || !f->stencil_used || f->alpha_synced == f->last_draw) return;
 	batch_flush();
 	f->alpha_synced = f->last_draw;
@@ -990,8 +1046,11 @@ static void texcat_add(TexEntry *slot, const uint32_t *px, int w, int h, int str
 		// rt_scene, with 0x8000 when the texture is first drawn in 3D (not through mode) and 0x4000 when
 		// on a skinned model (vertex weights: the fighters; stages and effects have none)
 		uint32_t where = rt_scene | ((reg[0x12] >> 23) & 1 ? 0 : 0x8000u) | ((reg[0x12] >> 9) & 3 ? 0x4000u : 0);
-		fprintf(f, "%016llx %d %d %d %08x %u %llu %d\n", (unsigned long long)key, w, h, fmt, addr, where, (unsigned long long)frame_no,
-		        stride);
+		if (GE_TEXCAT_WHERE)
+			fprintf(f, "%016llx %d %d %d %08x %u %llu %d\n", (unsigned long long)key, w, h, fmt, addr, where, (unsigned long long)frame_no,
+			        stride);
+		else
+			fprintf(f, "%016llx %d %d %d %08x %u %llu\n", (unsigned long long)key, w, h, fmt, addr, rt_scene, (unsigned long long)frame_no);
 		fclose(f);
 	}
 }
@@ -1061,30 +1120,39 @@ static void texcat_extent(uint64_t key, const GVert *tv, int count, int tw, int 
 // texture of 256 and one of 128 side by side): every 2D draw of a catalogued texture (in every Nth
 // frame), "frame fb key iw ih x0 y0 x1 y1 u0 v0 u1 v1" (its catalog key and size, framebuffer
 // pixels, texels), for the lab's mosaics.py.
-static void tiles_log(uint64_t key, const GVert *tv, int count, int type, float fbw, float fbh, int tw, int th) {
-	static FILE *f;
-	static int on = -1, every = 1;
-	if (on < 0) {
+static FILE *tiles_f;
+static int tiles_on = -1, tiles_every = 1;
+static bool tiles_enabled(void) {
+	if (tiles_on < 0) {
 		const char *e = getenv("DBZ_TILES");
 		char path[512];
 		snprintf(path, sizeof path, "%s", e ? e : "");
 		char *colon = strrchr(path, ':');
-		if (colon && atoi(colon + 1) > 0) every = atoi(colon + 1), *colon = 0;
-		f = e ? fopen(path, "a") : NULL;
-		on = f != NULL;
+		if (colon && atoi(colon + 1) > 0) tiles_every = atoi(colon + 1), *colon = 0;
+		tiles_f = e ? fopen(path, "a") : NULL;
+		if (tiles_f) setvbuf(tiles_f, NULL, _IOLBF, 0);
+		tiles_on = tiles_f != NULL;
 	}
-	if (!on || frame_no % (uint64_t)every || !(type == 6 || count <= 6)) return;
+	return tiles_on;
+}
+// key and its size (kw x kh): the catalog's key and the texture's size, or (GE_TILES_PACK_KEY) the
+// pack's key and its picture's size
+static void tiles_log(uint64_t key, int kw, int kh, const GVert *tv, int count, int type, float fbw, float fbh, int tw, int th,
+                      float uvsx, float uvsy) {
+	FILE *f = tiles_f;
+	if (!tiles_enabled() || frame_no % (uint64_t)tiles_every || !(type == 6 || count <= 6)) return;
+	f = tiles_f;
 	int step = type == 6 ? 2 : count;
 	for (int i = 0; i + step <= count; i += step) {
 		float x0 = 1e30f, y0 = 1e30f, x1 = -1e30f, y1 = -1e30f, u0 = 1e30f, v0 = 1e30f, u1 = -1e30f, v1 = -1e30f;
 		for (int k = i; k < i + step; k++) {
 			float x = (tv[k].x + 1) * 0.5f * fbw, y = (1 + tv[k].y) * 0.5f * fbh;  // through mode: w is 1
-			float u = tv[k].u * (float)tw, v = tv[k].v * (float)th;
+			float u = tv[k].u / uvsx * (float)tw, v = tv[k].v / uvsy * (float)th;
 			x0 = fminf(x0, x), y0 = fminf(y0, y), x1 = fmaxf(x1, x), y1 = fmaxf(y1, y);
 			u0 = fminf(u0, u), v0 = fminf(v0, v), u1 = fmaxf(u1, u), v1 = fmaxf(v1, v);
 		}
 		fprintf(f, "%llu %06x %016llx %d %d %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f\n", (unsigned long long)frame_no, cur_fbo->addr,
-		        (unsigned long long)key, tw, th, x0, y0, x1, y1, u0, v0, u1, v1);
+		        (unsigned long long)key, kw, kh, x0, y0, x1, y1, u0, v0, u1, v1);
 	}
 }
 
@@ -1331,6 +1399,12 @@ static GLuint texture_get_(int *tw, int *th, float *uvsx, float *uvsy) {
 	slot->changed_frame = frame_no;
 	slot->pack1 = 0;
 	slot->cat_key = 0;
+	if (slot->up_px || slot->up_tex) {  // a replacement half way to the GPU: dropped with the old contents
+		free(slot->up_px);
+		slot->up_px = NULL;
+		if (slot->up_tex) glDeleteTextures(1, &slot->up_tex);
+		slot->up_tex = 0;
+	}
 	free(slot->ui_orig);
 	slot->ui_orig = NULL;
 	free(slot->orig);
@@ -1462,6 +1536,10 @@ static GLuint texture_get_(int *tw, int *th, float *uvsx, float *uvsy) {
 	prof.dec += rt_now_us() - t_dec;
 
 	texcat_add(slot, out, w, h, stride, fmt, addr);
+	if (GE_TILES_PACK_KEY && tiles_enabled()) {
+		int i = texpack_find(out, w, h);
+		slot->tile_key = i >= 0 ? texpack_entry_key(i, &slot->tile_iw, &slot->tile_ih) : 0;
+	}
 	rt_texture_decoded(out, w, h);  // mods: a texture changed as it comes (mods/title.c hides one)
 	// A replacement from the texture pack (the HD textures) takes the place of everything below.
 	static int pack_log = -1;
@@ -1518,6 +1596,7 @@ static GLuint texture_get_(int *tw, int *th, float *uvsx, float *uvsy) {
 		uint32_t *px = TIMED(read, texpack_load(pk, &pw, &ph, &iw, &ih, &failed));
 		slot->w = w, slot->h = h;
 		bool shown = px && pack_upload(slot, px, pw, ph, iw, ih, w, h, out);
+		if (shown && slot->up_px) shown = false, slot->pack1 = pk + 1;  // big: by strips, the original meanwhile
 		free(px);
 		if (shown) {
 			if (pack_log) rt_log("texpack: replaced %016llx (%dx%d of %dx%d) at %dx", (unsigned long long)texpack_key(out, w, iw, ih), iw, ih, w, h, (int)slot->scale);
@@ -1701,6 +1780,7 @@ static void read_vertex(const VFmt *f, const uint8_t *p, RawVert *v) {
 		uint32_t rgba = conv16(c, f->col - 4);
 		memcpy(v->col, &rgba, 4);
 	}
+	else if (f->col) memset(v->col, 0, 4);  // (a color format the GE doesn't have)
 	if (f->nrm) rd_n(p + f->off_nrm, f->nrm, 3, true, norm, v->nrm);
 	int pk = f->pos ? f->pos : 3;
 	if (f->through && pk != 3) {  // through-mode z is unsigned
@@ -2520,7 +2600,9 @@ static void build_state(RenderState *s, bool through, bool clear) {
 		s->bdst = gl_blend_factor(df, false, reg[0xE1]);
 		// DOUBLESRCALPHA / ONE_MINUS_DOUBLESRCALPHA: the source alpha doubled (to 1 at most) for
 		// both factors (games with alpha 0x80 as "opaque" blend src * 1 + dst * 0 with them)
-		s->blend_double = sf == 6 || sf == 7 || df == 6 || df == 7;
+		// DOUBLESRCALPHA / DOUBLEINVSRCALPHA: the alpha doubled (2), or (GE_BLEND_DOUBLE_ALPHA 0, the
+		// older way) the source color for DOUBLESRCALPHA as the source factor (1)
+		s->blend_double = GE_BLEND_DOUBLE_ALPHA ? (sf == 6 || sf == 7 || df == 6 || df == 7 ? 2 : 0) : sf == 6;
 		if (s->bsrc == GL_CONSTANT_COLOR || s->bdst == GL_CONSTANT_COLOR) {
 			uint32_t fix = s->bsrc == GL_CONSTANT_COLOR ? reg[0xE0] : reg[0xE1];
 			s->bcolor[0] = (fix & 0xFF) / 255.f;
@@ -2622,7 +2704,7 @@ static void draw_prim(uint32_t data) {
 		// ID buffer with one bit per character projected onto the stage) is not done yet: drawn with
 		// its colors as they are, it painted the characters black; left out (DBZ_FBO_CLUT=1 draws it).
 		static int raw = -1;
-		if (raw < 0) raw = getenv("DBZ_FBO_CLUT") != NULL;
+		if (raw < 0) raw = getenv("DBZ_FBO_CLUT") ? atoi(getenv("DBZ_FBO_CLUT")) != 0 : !GE_FBO_CLUT_SKIP;
 		if (!raw && tex_on && tex_from_fbo && (reg[0xC3] & 0xF) >= 4) return;
 	}
 	if (tex_on) {
@@ -2672,11 +2754,16 @@ static void draw_prim(uint32_t data) {
 			tv[i] = vc_val[slot];
 			continue;
 		}
-		RawVert rv = {0};
+		// (only what read_vertex may leave unwritten and a later step reads is cleared: zeroing the
+		// whole vertex was a memset call per vertex, millions a second in the browser)
+		RawVert rv;
 		if (f.morphs == 1) {
+			if (dumping) memset(&rv, 0, sizeof rv);  // (the dump hashes it whole)
+			else rv.uv[0] = rv.uv[1] = 0, rv.nrm[0] = rv.nrm[1] = rv.nrm[2] = 0;
 			read_vertex(&f, MP(vaddr + vi * (uint32_t)f.size * 1), &rv);
 		}
 		else {  // morph targets are stored back to back
+			memset(&rv, 0, sizeof rv);
 			for (int m = 0; m < f.morphs; m++) {
 				RawVert t = {0};
 				read_vertex(&f, MP(vaddr + (vi * (uint32_t)f.morphs + (uint32_t)m) * (uint32_t)f.size), &t);
@@ -2700,7 +2787,12 @@ static void draw_prim(uint32_t data) {
 	if (tex_on && !tex_from_fbo && texcat_dir && texcat_dir != (const char *)1 && last_slot >= 0 && texcache[last_slot].tex == tex &&
 	    texcache[last_slot].cat_key && (f.through || (reg[0xC0] & 3) == 0)) {
 		texcat_extent(texcache[last_slot].cat_key, tv, count, tw, th);
-		if (f.through) tiles_log(texcache[last_slot].cat_key, tv, count, type, fbw, fbh, tw, th);
+		if (f.through && !GE_TILES_PACK_KEY) tiles_log(texcache[last_slot].cat_key, tw, th, tv, count, type, fbw, fbh, tw, th, uvsx, uvsy);
+	}
+	if (GE_TILES_PACK_KEY && f.through && tex_on && last_slot >= 0 && texcache[last_slot].tex == tex && texcache[last_slot].tile_key &&
+	    tiles_enabled()) {
+		const TexEntry *e = &texcache[last_slot];
+		tiles_log(e->tile_key, e->tile_iw, e->tile_ih, tv, count, type, fbw, fbh, tw, th, uvsx, uvsy);
 	}
 	// DBZ_GE_BIG=1 (diagnostics): blended draws of a few vertices covering most of the screen
 	static int ge_big = -1;
@@ -3122,8 +3214,9 @@ void ge_command(uint32_t cmd, uint32_t data, uint32_t addr) {
 		uint32_t a = ((reg[0xB1] & 0xF0000u) << 8) | (reg[0xB0] & 0xFFFFFFu);
 		uint32_t bytes = (data & 0x3F) * 32;
 		if (bytes > sizeof clut) bytes = sizeof clut;
-		if (rt_valid(a, bytes)) memcpy(clut, MP(a), bytes);
-		clut_dirty = true;
+		// a game loads the same palette again draw after draw (thousands of times a frame): only one
+		// that changes what is there is hashed again
+		if (rt_valid(a, bytes) && memcmp(clut, MP(a), bytes)) memcpy(clut, MP(a), bytes), clut_dirty = true;
 		break;
 	}
 	case 0xEA: block_transfer(data); break;
@@ -3153,6 +3246,10 @@ void ge_forget_textures(void) {
 		texcache[i].orig = NULL;
 		free(texcache[i].look);
 		texcache[i].look = NULL;
+		free(texcache[i].up_px);
+		texcache[i].up_px = NULL;
+		if (texcache[i].up_tex) glDeleteTextures(1, &texcache[i].up_tex);
+		texcache[i].up_tex = 0;
 	}
 	memset(memo, 0, sizeof memo);  // the pack or the switches changed
 }

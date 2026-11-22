@@ -228,6 +228,12 @@ bool texpack_set_enabled(bool on) {
 	return true;
 }
 
+uint64_t texpack_entry_key(int idx, int *iw, int *ih) {
+	if (idx < 0 || idx >= nents) return 0;
+	*iw = ents[idx].iw, *ih = ents[idx].ih;
+	return ents[idx].key;
+}
+
 static int find_slow(const uint32_t *px, int w, int h) {  // a key for each possible size, one by one
 	int lw = log2i(w), lh = log2i(h);
 	for (int k = 0; k < nsizes[lw][lh]; k++) {

@@ -481,11 +481,10 @@ static void ge_defer(uint32_t func, uint32_t a0, uint32_t a1, uint32_t a2) {
 	ge_pending[ge_npending].due = rt_now_us() + GE_FINISH_US;
 	ge_npending++;
 }
-static void ge_deliver(bool all) {
+static void ge_deliver(bool all, uint64_t now) {
 	static bool busy;  // a callback's own system calls come back here
 	if (busy || !ge_npending) return;
 	busy = true;
-	uint64_t now = rt_now_us();
 	while (ge_npending && (all || now >= ge_pending[0].due)) {
 		uint32_t f = ge_pending[0].func, a0 = ge_pending[0].a0, a1 = ge_pending[0].a1, a2 = ge_pending[0].a2;
 		uint64_t due = ge_pending[0].due;
@@ -500,9 +499,11 @@ static void ge_deliver(bool all) {
 	}
 	busy = false;
 }
-void ge_poll(void) {  // at every system call (rt_hle_poll)
-	if (ge_npending) ge_deliver(false);
+void ge_poll(uint64_t now) {  // at every system call (rt_hle_poll), with its clock
+	if (ge_npending && now >= ge_pending[0].due) ge_deliver(false, now);
 }
+
+uint64_t ge_next_due(void) { return ge_npending ? ge_pending[0].due : UINT64_MAX; }
 
 static void ge_run(GeList *l) {
 	while (!l->done && l->pc != l->stall) {
@@ -588,11 +589,11 @@ void hle_sceGeListUpdateStallAddr(CPU *c) {
 	RET(0);
 }
 void hle_sceGeListSync(CPU *c) {
-	ge_deliver(true);
+	ge_deliver(true, rt_now_us());
 	RET(0);
 }
 void hle_sceGeDrawSync(CPU *c) {
-	ge_deliver(true);
+	ge_deliver(true, rt_now_us());
 	RET(0);
 }
 void hle_sceGeSetCallback(CPU *c) {

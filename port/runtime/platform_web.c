@@ -277,22 +277,36 @@ void plat_drawable_size(int *w, int *h) { emscripten_get_canvas_element_size("#c
 // hole out had played on). In a network game the timer runs in a worker then, whose timers keep
 // their pace, and wakes the game through the channel.
 EM_ASYNC_JS(void, js_sleep, (int ms), {
+	// One channel for every wake-up, each sleep with its own number: a timer of a sleep that a
+	// refresh already ended wakes nothing later (a new MessageChannel a sleep cost more than the rest).
+	let S = Module.dbzSleep;
+	if (!S) {
+		S = Module.dbzSleep = {ch: new MessageChannel(), id: 0, resolve: null};
+		S.wake = (id) => {
+			if (id !== S.id || !S.resolve) return;
+			const r = S.resolve;
+			S.resolve = null;
+			r();
+		};
+		S.ch.port1.onmessage = (e) => S.wake(e.data);
+	}
+	const id = ++S.id;
 	await new Promise((resolve) => {
-		const ch = new MessageChannel();
-		ch.port1.onmessage = () => resolve();
+		S.resolve = resolve;
 		if (ms <= 0) {
-			ch.port2.postMessage(0);
+			S.ch.port2.postMessage(id);
 			return;
 		}
-		if (Module.dbzVsync && Module.dbzVsync.m) Module.dbzVsync.wake = resolve;
+		if (Module.dbzVsync && Module.dbzVsync.m) Module.dbzVsync.wake = () => S.wake(id);
 		if (document.hidden && Module.dbzNet && Module.dbzNet.state === 2) {
 			if (!Module.dbzTimer) {
-				const src = 'onmessage = (e) => setTimeout(() => e.ports[0].postMessage(0), e.data);';
+				const src = 'onmessage = (e) => setTimeout(() => postMessage(e.data[1]), e.data[0]);';
 				Module.dbzTimer = new Worker(URL.createObjectURL(new Blob([src], {type: 'text/javascript'})));
+				Module.dbzTimer.onmessage = (e) => S.wake(e.data);
 			}
-			Module.dbzTimer.postMessage(ms, [ch.port2]);
+			Module.dbzTimer.postMessage([ms, id]);
 		} else {
-			setTimeout(() => ch.port2.postMessage(0), ms);
+			setTimeout(() => S.ch.port2.postMessage(id), ms);
 		}
 	});
 });
@@ -305,11 +319,11 @@ void plat_swap(void) {
 	js_sleep(0);
 }
 
-// Waits under a millisecond spin in the scheduler instead (it calls this again until its timer is
-// due).
-void plat_sleep(uint64_t us) {
-	if (us >= 1000) js_sleep((int)(us / 1000));
-}
+// Waits under a millisecond hand the browser a turn too (a message through the channel comes back
+// in tens of microseconds; the scheduler calls this again until its timer is due): spinning there
+// instead kept the page's thread busy (in a fight, a sixth of its time) and the browser's own
+// work (network messages, input) waiting.
+void plat_sleep(uint64_t us) { js_sleep((int)(us / 1000)); }
 
 bool plat_debug_dump_requested(void) {
 	return EM_ASM_INT({ const r = Module.dbzDumpReq | 0; Module.dbzDumpReq = 0; return r; }) != 0;

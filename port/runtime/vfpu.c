@@ -250,6 +250,13 @@ void rt_vfpu_mismatch(uint32_t pc, uint32_t op, const float *a, const float *b) 
 	}
 }
 
+void rt_vfpu_ctrl_mismatch(uint32_t pc, uint32_t op, const uint32_t *a, const uint32_t *b) {
+	static int n;
+	if (n++ > 50) return;
+	for (int i = 0; i < 16; i++)
+		if (a[i] != b[i]) rt_log("VFPU self-check: %08x at %08x: control %d inline %08x, runtime %08x", op, pc, i, a[i], b[i]);
+}
+
 void rt_vfpu(CPU *c, uint32_t pc, uint32_t op) {
 	static int stats = -1;
 	if (stats < 0 && (stats = getenv("DBZ_VFPU_STATS") != NULL)) atexit(vstat_report);

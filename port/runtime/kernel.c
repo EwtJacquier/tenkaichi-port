@@ -319,17 +319,36 @@ static Thread *best_ready(void) {
 // Called before every HLE call: emulates the timer/vblank interrupts that would preempt the
 // running thread on a real PSP, so a woken higher-priority thread gets to run.
 static bool dispatch_off;  // sceKernelSuspendDispatchThread: the running thread keeps the CPU
-void ge_poll(void);  // display.c: GE callbacks that are due
+void ge_poll(uint64_t now);  // display.c: GE callbacks that are due
+uint64_t ge_next_due(void);
+// The clock is read once a call; in the browser that is a call out to JavaScript (~1 us, ~25,000
+// times a second in a fight). While system calls come thick (POLL_DENSE_US apart or closer) and
+// nothing is due for a while (POLL_SLACK_US), the next POLL_SKIP calls don't look: anything due
+// then is noticed a fraction of POLL_DENSE_US late.
+#define POLL_DENSE_US 200
+#define POLL_SLACK_US 2000
+#define POLL_SKIP 4
 void rt_hle_poll(void) {
 	if (!cur || dispatch_off) {
 		return;
 	}
-	ge_poll();
-	uint64_t now = rt_now_us();
+	static uint64_t last_read;
+	static int skip;
+	if (skip > 0) {
+		skip--;
+		return;
+	}
+	uint64_t now = rt_now_us(), gap = now - last_read;
+	last_read = now;
+	ge_poll(now);
 	if (now >= next_vblank_us || now >= next_timer_us) {
 		make_ready(cur, true);  // stays first among its priority level
 		switch_to_scheduler();
+		return;
 	}
+	uint64_t next = next_vblank_us < next_timer_us ? next_vblank_us : next_timer_us, ge = ge_next_due();
+	if (ge < next) next = ge;
+	if (gap < POLL_DENSE_US && next > now + POLL_SLACK_US) skip = POLL_SKIP;
 }
 
 void rt_resched(void) {
@@ -547,49 +566,114 @@ static void sema_wake_waiters(Sema *s) {
 }
 
 // ---- variable pools ----------------------------------------------------------------
-typedef struct VplAlloc {
-	uint32_t addr, size;  // addr = block start (header), size includes 8-byte header
-	struct VplAlloc *next;
-} VplAlloc;
+// A pool hands out the lowest place a block fits (first fit, as before), from a sorted array of
+// its free gaps, and keeps each block's size in a hash table. A game keeps ~30,000 blocks alive in
+// one pool and makes and frees ~3,000 a second: walking a list of the blocks for each (~12,000
+// steps) took half the game's CPU time.
+typedef struct {
+	uint32_t addr, size;
+} VplGap;
 typedef struct {
 	uint32_t uid;
 	char name[32];
 	uint32_t attr, base, size;
-	VplAlloc *allocs;  // sorted
+	VplGap *gaps;  // the free places, sorted, none touching another
+	uint32_t ngaps, gaps_cap;
+	uint32_t *hkey, *hsize;  // block (its header) -> its size with the header; key 0 empty, 1 removed
+	uint32_t hcap, hfill, used;
 	Block *mem;
 } Vpl;
 
-static uint32_t vpl_try_alloc(Vpl *v, uint32_t size) {
-	uint32_t need = align_up(size, 8) + 8;
-	uint32_t prev = v->base;
-	VplAlloc **pp = &v->allocs;
-	for (;;) {
-		uint32_t end = *pp ? (*pp)->addr : v->base + v->size;
-		if (end >= prev && end - prev >= need) {
-			VplAlloc *a = calloc(1, sizeof *a);
-			a->addr = prev;
-			a->size = need;
-			a->next = *pp;
-			*pp = a;
-			M32(prev) = v->uid;
-			M32(prev + 4) = need;
-			return prev + 8;
-		}
-		if (!*pp) {
-			return 0;
-		}
-		prev = (*pp)->addr + (*pp)->size;
-		pp = &(*pp)->next;
-	}
+static uint32_t vpl_slot(uint32_t addr, uint32_t cap) { return ((addr >> 3) * 2654435761u) & (cap - 1); }
+
+static void vpl_hash_put(Vpl *v, uint32_t addr, uint32_t size);
+static void vpl_hash_grow(Vpl *v) {
+	uint32_t old_cap = v->hcap, *ok = v->hkey, *os = v->hsize;
+	v->hcap = old_cap ? old_cap * 2 : 1024;
+	v->hkey = calloc(v->hcap, sizeof *v->hkey);
+	v->hsize = calloc(v->hcap, sizeof *v->hsize);
+	v->hfill = 0;
+	for (uint32_t i = 0; i < old_cap; i++)
+		if (ok[i] > 1) vpl_hash_put(v, ok[i], os[i]);
+	free(ok);
+	free(os);
 }
 
-static uint32_t vpl_free_bytes(Vpl *v) {
-	uint32_t used = 0;
-	for (VplAlloc *a = v->allocs; a; a = a->next) {
-		used += a->size;
-	}
-	return v->size - used;
+static void vpl_hash_put(Vpl *v, uint32_t addr, uint32_t size) {
+	if ((v->hfill + 1) * 10 >= v->hcap * 7) vpl_hash_grow(v);
+	uint32_t i = vpl_slot(addr, v->hcap);
+	while (v->hkey[i] > 1) i = (i + 1) & (v->hcap - 1);
+	if (!v->hkey[i]) v->hfill++;
+	v->hkey[i] = addr, v->hsize[i] = size;
 }
+
+static bool vpl_hash_take(Vpl *v, uint32_t addr, uint32_t *size) {
+	if (!v->hcap) return false;
+	for (uint32_t i = vpl_slot(addr, v->hcap); v->hkey[i]; i = (i + 1) & (v->hcap - 1)) {
+		if (v->hkey[i] == addr) {
+			*size = v->hsize[i];
+			v->hkey[i] = 1;  // removed (still counted in hfill: the probes go on past it)
+			return true;
+		}
+	}
+	return false;
+}
+
+static void vpl_gap_insert(Vpl *v, uint32_t at, VplGap g) {
+	if (v->ngaps == v->gaps_cap) v->gaps = realloc(v->gaps, sizeof *v->gaps * (v->gaps_cap = v->gaps_cap ? v->gaps_cap * 2 : 64));
+	memmove(v->gaps + at + 1, v->gaps + at, sizeof *v->gaps * (v->ngaps - at));
+	v->gaps[at] = g;
+	v->ngaps++;
+}
+
+static void vpl_gap_remove(Vpl *v, uint32_t at) {
+	memmove(v->gaps + at, v->gaps + at + 1, sizeof *v->gaps * (v->ngaps - at - 1));
+	v->ngaps--;
+}
+
+static uint32_t vpl_try_alloc(Vpl *v, uint32_t size) {
+	if (size > v->size) return 0;
+	uint32_t need = align_up(size, 8) + 8;
+	for (uint32_t i = 0; i < v->ngaps; i++) {
+		VplGap *g = &v->gaps[i];
+		if (g->size < need) continue;
+		uint32_t at = g->addr;
+		g->addr += need, g->size -= need;
+		if (!g->size) vpl_gap_remove(v, i);
+		vpl_hash_put(v, at, need);
+		v->used += need;
+		M32(at) = v->uid;
+		M32(at + 4) = need;
+		return at + 8;
+	}
+	return 0;
+}
+
+// The block whose header is at hdr back among the gaps (joined to the ones it touches); false if
+// there is no such block.
+static bool vpl_release(Vpl *v, uint32_t hdr) {
+	uint32_t size;
+	if (!vpl_hash_take(v, hdr, &size)) return false;
+	v->used -= size;
+	uint32_t lo = 0, hi = v->ngaps;  // the first gap after it
+	while (lo < hi) {
+		uint32_t mid = (lo + hi) / 2;
+		if (v->gaps[mid].addr > hdr) hi = mid;
+		else lo = mid + 1;
+	}
+	bool join_prev = lo > 0 && v->gaps[lo - 1].addr + v->gaps[lo - 1].size == hdr;
+	bool join_next = lo < v->ngaps && hdr + size == v->gaps[lo].addr;
+	if (join_prev && join_next) {
+		v->gaps[lo - 1].size += size + v->gaps[lo].size;
+		vpl_gap_remove(v, lo);
+	}
+	else if (join_prev) v->gaps[lo - 1].size += size;
+	else if (join_next) v->gaps[lo].addr = hdr, v->gaps[lo].size += size;
+	else vpl_gap_insert(v, lo, (VplGap){hdr, size});
+	return true;
+}
+
+static uint32_t vpl_free_bytes(Vpl *v) { return v->size - v->used; }
 
 static void vpl_wake_waiters(Vpl *v) {
 	for (int i = 0; i < MAX_THREADS; i++) {
@@ -1251,6 +1335,7 @@ void hle_sceKernelCreateVpl(CPU *c) {
 	}
 	v->base = v->mem->addr;
 	v->size = size;
+	vpl_gap_insert(v, 0, (VplGap){v->base, size});
 	v->uid = obj_new(OBJ_VPL, v);
 	TRACE("sceKernelCreateVpl(%s, part=%d, attr=%x, size=%x) -> %08x at %08x", v->name, A1, A2, size, v->uid, v->base);
 	RET(v->uid);
@@ -1262,11 +1347,9 @@ void hle_sceKernelDeleteVpl(CPU *c) {
 		RET(ERR_UNKNOWN_VPLID);
 		return;
 	}
-	while (v->allocs) {
-		VplAlloc *n = v->allocs->next;
-		free(v->allocs);
-		v->allocs = n;
-	}
+	free(v->gaps);
+	free(v->hkey);
+	free(v->hsize);
 	block_free(v->mem);
 	obj_free(v->uid);
 	free(v);
@@ -1298,19 +1381,13 @@ void hle_sceKernelFreeVpl(CPU *c) {
 		RET(ERR_UNKNOWN_VPLID);
 		return;
 	}
-	uint32_t hdr = A1 - 8;
-	for (VplAlloc **pp = &v->allocs; *pp; pp = &(*pp)->next) {
-		if ((*pp)->addr == hdr) {
-			VplAlloc *a = *pp;
-			*pp = a->next;
-			free(a);
-			vpl_wake_waiters(v);
-			RET(0);
-			rt_resched();
-			return;
-		}
+	if (!vpl_release(v, A1 - 8)) {
+		RET(ERR_ILLEGAL_MEMBLOCK);
+		return;
 	}
-	RET(ERR_ILLEGAL_MEMBLOCK);
+	vpl_wake_waiters(v);
+	RET(0);
+	rt_resched();
 }
 
 void hle_sceKernelReferVplStatus(CPU *c) {
