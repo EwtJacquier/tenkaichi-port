@@ -55,13 +55,13 @@ WEB_LDFLAGS = --emit-symbol-map -O2 -msimd128 -sASYNCIFY -sINITIAL_MEMORY=512MB 
 	-sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=2 -sFULL_ES3 -lidbfs.js -sFORCE_FILESYSTEM -sINVOKE_RUN=0 \
 	-sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV,IDBFS,addRunDependency,removeRunDependency \
 	-sEXPORTED_FUNCTIONS=_main --preload-file generated/image.bin@/image.bin $(WEB_EXTRA_FILES) \
-	--shell-file web/shell.html --pre-js web/audio.js --pre-js web/net.js $(WEB_PROF)
+	--pre-js web/audio.js --pre-js web/net.js $(WEB_PROF)
 # make web WEB_PROF=--profiling-funcs: function names in the wasm (for the browser's profiler)
 WEB_EXTRA_FILES = $(if $(wildcard assets/fonts/*),--preload-file assets/fonts@/assets/fonts) \
 	$(if $(wildcard generated/ui_text.spec),--preload-file generated/ui_text.spec@/generated/ui_text.spec)
 WEB_EXTRA_DEPS = $(wildcard assets/fonts/*) $(wildcard generated/ui_text.spec)
 
-web: build/web/index.html build/web/livekit-client.umd.js $(patsubst web/%,build/web/%,$(wildcard web/*.png web/*.webp))
+web: build/web/index.html build/web/index.js build/web/livekit-client.umd.js $(patsubst web/%,build/web/%,$(wildcard web/*.png web/*.webp))
 
 build/web/livekit-client.umd.js: web/livekit-client.umd.js | build/web
 	cp $< $@
@@ -70,7 +70,12 @@ build/web/%.png: web/%.png | build/web
 build/web/%.webp: web/%.webp | build/web
 	cp $< $@
 
-build/web/index.html: $(WGEN_OBJ) $(WRT_OBJ) $(WMOD_OBJ) web/shell.html web/audio.js web/net.js $(WEB_EXTRA_DEPS) | build/web
+# The page: web/shell.html with the game's script where its {{{ SCRIPT }}} marker is (what emcc's
+# --shell-file did), made apart from the link: a change to the page alone takes no relink.
+build/web/index.html: web/shell.html | build/web
+	sed 's|{{{ SCRIPT }}}|<script async src="index.js"></script>|' $< > $@
+
+build/web/index.js: $(WGEN_OBJ) $(WRT_OBJ) $(WMOD_OBJ) web/audio.js web/net.js $(WEB_EXTRA_DEPS) | build/web
 	$(EMCC) -o $@ $(WGEN_OBJ) $(WRT_OBJ) $(WMOD_OBJ) $(WEB_LIBS) $(WEB_LDFLAGS)
 
 build/wgen/%.o: generated/%.c generated/funcs.h runtime/cpu.h | build/wgen

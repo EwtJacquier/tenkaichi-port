@@ -24,8 +24,8 @@
   /* Tenkaichi Tag Team's own look, as its menus draw it: a bright sky, deep-blue bars fading to
      the right with white italic lettering edged in navy, the chosen bar white to gold with its
      words in red-orange, help boxes of see-through blue with a pale edge, headings on a blue band
-     beside an orange four-star ball; behind the sign-in, the disc's own key art (PIC1.PNG, from
-     the player's ISO: serve_web.py /art/), like the game's title screen. */
+     beside an orange four-star ball; behind the sign-in, the game's title screen (its layers
+     from the texture pack; without it the disc's own key art, PIC1.PNG: serve_web.py /art/). */
   :root {
     color-scheme: dark;
     --bg: #000; --text: #fff; --muted: #d6ecff;
@@ -130,15 +130,42 @@
     background: linear-gradient(90deg, rgba(10,54,150,.45), rgba(10,54,150,.12) 45%, transparent 70%); }
 
   #login { position: fixed; inset: 0; display: none; z-index: 2; font-family: var(--body); color: var(--ink); overflow: hidden auto; }
-  #login.open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  /* the key art: the right side, full height, fading in from the form's side */
-  #login-art, #preload-art { position: absolute; right: 0; bottom: 0; height: 100%; min-width: 55%; max-width: 62%; object-fit: cover; object-position: 60% 50%;
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 26%); mask-image: linear-gradient(to right, transparent, #000 26%);
-    z-index: 1; }
-  #login .side, #preload .side { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; padding: 24px;
+  #login.open { display: grid; grid-template-columns: minmax(0, 1fr); }
+
+  /* ---- The title screen behind the sign-in and the first download, drawn again sharp from the
+     texture pack's pictures of its layers (serve_web.py /art/, isoart.PACKED), each where the game
+     draws it in its 480x272 frame (--u: one of its texels): the sky, clouds drifting along the
+     bottom, Vegeta and Trunks at the bottom left, Goku and Goten at the bottom right, the dragon
+     balls around them, the logo above the form (where "Press START" is). Without the pack the
+     pictures are missing: the scene goes, the disc's key art stays behind, soft (.sky::before). */
+  .scene { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden;
+    --u: min(calc(92vh / 272), calc(46vw / 256)); }
+  .scene .tsky { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  /* the clouds: the sheet's last three strips (each 64 texels tall, flat at the bottom), standing
+     on the window's bottom edge as on the title screen, each one strip exactly (no edge of another) */
+  .scene .clouds { position: absolute; left: 0; bottom: 0; width: calc(100% + var(--u) * 256); height: calc(var(--u) * 64);
+    background-image: url(art/clouds.png), url(art/clouds.png), url(art/clouds.png);
+    background-size: calc(var(--u) * 256) calc(var(--u) * 256);
+    background-position: calc(var(--u) * 150) calc(var(--u) * -64), calc(var(--u) * 20) calc(var(--u) * -128),
+                         calc(var(--u) * 110) calc(var(--u) * -192);
+    background-repeat: repeat-x; animation: drift 70s linear infinite; }
+  @keyframes drift { to { transform: translateX(calc(var(--u) * -256)); } }
+  .scene .pair { position: absolute; bottom: 0; width: calc(var(--u) * 256); height: calc(var(--u) * 272); }
+  .scene .pair.l { left: 0; }
+  .scene .pair.r { right: 0; }
+  .scene .pair img { position: absolute; display: block; height: calc(var(--u) * 256); }
+  .scene .big { left: 0; top: 0; width: 100%; }
+  .scene .kid { top: calc(var(--u) * 16); width: 50%; }
+  .scene .l .kid { left: calc(var(--u) * 48); }
+  .scene .r .kid { left: calc(var(--u) * 96); }
+  .scene .balls { left: 0; top: calc(var(--u) * 18); width: 100%; animation: float 5s ease-in-out infinite alternate; }
+  .scene .r .balls { animation-delay: -2.5s; }
+  @keyframes float { to { transform: translateY(calc(var(--u) * -4)); } }
+  .tlogo { display: block; height: min(236px, 30vh); width: auto; max-width: 100%; object-fit: contain; margin: 0 0 2px;
+    filter: drop-shadow(0 6px 12px rgba(150, 50, 0, .35)); }
+  .tlogo + .wordmark { display: none; }  /* only when the logo is missing */
+  #login .side, #preload .side { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; padding: 16px 24px 24px;
     box-sizing: border-box; min-height: 100vh; justify-content: safe center; gap: 10px; }
-  #login .logo-side, #preload .logo-side { justify-content: flex-start; padding-top: max(24px, 6vh); }
-  #login-art ~ .logo-side .wordmark, #preload-art ~ .logo-side .wordmark { display: none; }  /* only without the key art */
   .wordmark { font: italic 900 56px/0.95 var(--face); letter-spacing: 1px;
     color: transparent; background: linear-gradient(#fffbe0, var(--gold-3) 50%, #ff8a00 85%); -webkit-background-clip: text; background-clip: text;
     filter: drop-shadow(0 0 1px var(--navy)) drop-shadow(0 3px 0 var(--navy)) drop-shadow(0 0 12px rgba(255,255,255,.5));
@@ -159,12 +186,18 @@
   .win .body { position: relative; padding: 12px 18px 16px; color: var(--ink); }
   .win p { margin: 0 0 10px; font-size: 13px; line-height: 1.45; color: var(--ink); font-weight: 600; text-shadow: 0 1px 2px rgba(0,20,70,.6); }
   /* tabs: two menu bars, the chosen one gold */
-  .tabs { display: flex; gap: 6px; margin: 0 0 4px; }
-  .tabs button { all: unset; cursor: pointer; flex: 1; padding: 4px 14px 5px; border-radius: 3px; font: italic 900 14px var(--face);
-    color: #fff; text-shadow: var(--outline); background: var(--bar); box-shadow: inset 0 -2px 0 rgba(228,246,255,.6); }
-  .tabs button:not([aria-pressed="true"]):hover { filter: brightness(1.18); }
-  .tabs button[aria-pressed="true"] { color: var(--flame); text-shadow: var(--outline-white); background: var(--bar-on); box-shadow: inset 0 -2px 0 #fff, 0 0 10px rgba(255,226,90,.45); }
-  .tabs button:focus-visible { outline: 3px solid var(--gold-3); outline-offset: 2px; }
+  /* tabs: two slanted bars side by side, blue with a pale edge; the chosen one gold, its words red */
+  .tabs { display: flex; gap: 12px; margin: 2px 8px 6px; }
+  .tabs button { all: unset; position: relative; isolation: isolate; flex: 1; cursor: pointer; text-align: center; padding: 6px 12px 7px;
+    font: italic 900 15px var(--face); letter-spacing: .3px; color: #fff; text-shadow: var(--outline); }
+  .tabs button::before { content: ""; position: absolute; inset: 0; z-index: -1; transform: skewX(-14deg); border-radius: 5px;
+    background: linear-gradient(#3b8af0, var(--blue-1) 52%, var(--blue-0)); border: 2px solid var(--edge);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 3px 0 var(--navy); }
+  .tabs button:not([aria-pressed="true"]):hover::before { filter: brightness(1.18); }
+  .tabs button[aria-pressed="true"] { color: var(--flame); text-shadow: var(--outline-white); }
+  .tabs button[aria-pressed="true"]::before { background: linear-gradient(var(--gold-1), var(--gold-2) 45%, var(--gold-3)); border-color: #fff;
+    box-shadow: inset 0 1px 0 #fff, 0 3px 0 var(--flame-dark), 0 0 14px rgba(255,226,90,.65); }
+  .tabs button:focus-visible { outline: 3px solid var(--gold-3); outline-offset: 3px; }
   /* fields: the game's name plate, navy edged in pale blue */
   .field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; font: italic 800 13px var(--face); color: #fff; text-shadow: var(--outline); }
   .field small { font: 600 11px var(--body); color: var(--ink-soft); margin-left: 4px; text-shadow: none; }
@@ -182,15 +215,22 @@
   #login .error { color: #ffe08a; font-size: 13px; font-weight: bold; margin: 10px 0 8px; text-shadow: var(--outline); }
   #login .error:empty { margin: 14px 0 0; }
   /* the main button: the chosen menu bar, white to gold, its words red-orange */
-  .go { all: unset; position: relative; cursor: pointer; padding: 8px 14px; border-radius: 4px;
-    font: italic 900 18px/1.1 var(--face); letter-spacing: .5px; color: var(--flame); text-shadow: var(--outline-white);
-    background: var(--bar-on); background-color: var(--gold-3); border: 2px solid #fff;
-    box-shadow: 0 0 0 2px var(--navy), 0 0 16px rgba(255,226,90,.6), 0 4px 0 rgba(6,32,94,.8); }
-  .go:hover { filter: brightness(1.06); box-shadow: 0 0 0 2px var(--navy), 0 0 26px rgba(255,236,120,.95), 0 4px 0 rgba(6,32,94,.8); }
-  .go:active { transform: translateY(2px); box-shadow: 0 0 0 2px var(--navy), 0 2px 0 rgba(6,32,94,.8); }
-  .go:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
-  .go:disabled { background: linear-gradient(#a9b8cc, #7d8ea6); color: #e8eef6; text-shadow: var(--outline); box-shadow: 0 0 0 2px var(--navy); cursor: default; }
+  /* the main button: a slanted orange bar (Goku's gi) edged in gold, its words white edged in navy */
+  .go { all: unset; position: relative; isolation: isolate; cursor: pointer; padding: 9px 30px 10px;
+    font: italic 900 19px/1.1 var(--face); letter-spacing: .6px; color: #fff;
+    text-shadow: -1.5px -1.5px 0 var(--navy), 1.5px -1.5px 0 var(--navy), -1.5px 1.5px 0 var(--navy), 1.5px 1.5px 0 var(--navy),
+                 0 2px 0 var(--navy), 0 3px 5px rgba(0,20,70,.6); }
+  .go::before { content: ""; position: absolute; inset: 0; z-index: -1; transform: skewX(-14deg); border-radius: 6px;
+    background: linear-gradient(#ffb347, #ff7a12 46%, #e85400 54%, #ff8a1a); border: 2px solid var(--gold-2);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.5), 0 0 0 2px var(--navy), 0 4px 0 rgba(6,32,94,.85), 0 0 16px rgba(255,170,40,.5); }
+  .go:hover::before { filter: brightness(1.1);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.5), 0 0 0 2px var(--navy), 0 4px 0 rgba(6,32,94,.85), 0 0 26px rgba(255,200,60,.9); }
+  .go:active { transform: translateY(2px); }
+  .go:focus-visible { outline: 3px solid #fff; outline-offset: 5px; }
+  .go:disabled { cursor: default; transform: none; }
+  .go:disabled::before { background: linear-gradient(#a9b8cc, #7d8ea6); border-color: #dfe8f3; filter: none; }
   .actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  #login .actions { justify-content: center; }
   /* the other buttons: a blue menu bar */
   .guest { all: unset; cursor: pointer; padding: 5px 16px 6px; border-radius: 4px; font: italic 900 13px var(--face); color: #fff;
     text-shadow: var(--outline); background: linear-gradient(90deg, var(--blue-0), var(--blue-1) 60%, var(--blue-2));
@@ -215,7 +255,7 @@
      game never waits on the network), between the sign-in and the game. A ki gauge fills, the
      four-star ball riding its end. */
   #preload { position: fixed; inset: 0; display: none; z-index: 2; font-family: var(--body); color: var(--ink); overflow: hidden auto; }
-  #preload.open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  #preload.open { display: grid; grid-template-columns: minmax(0, 1fr); }
   .meter { position: relative; height: 26px; margin: 4px 0 8px; border-radius: 13px; overflow: hidden;
     background: var(--navy); border: 2px solid var(--edge); box-shadow: inset 0 2px 6px rgba(0,0,0,.6); }
   .meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; overflow: hidden;
@@ -232,7 +272,7 @@
   .pre-row span:last-child { color: var(--ink-soft); font-weight: 600; }
   #pre-eta { margin: 6px 0 14px; font-size: 12px; color: var(--ink-soft); min-height: 1.2em; }
   .pre-note { font-size: 12px; font-weight: 600; color: var(--ink); }
-  @media (prefers-reduced-motion: reduce) { .meter i::before { animation: none; } .meter i, .meter .ball { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .meter i::before, .scene .clouds, .scene .balls { animation: none; } .meter i, .meter .ball { transition: none; } }
 
   /* ---- Phones and tablets: the picture, the logo and a note */
   #mobile { display: none; }
@@ -248,22 +288,17 @@
   #mobile .body p + p { margin-top: 10px; font-size: 12px; color: var(--ink-soft); }
   /* Phones and narrow windows: the key art (it has the logo) on top, the form under it. */
   @media (max-width: 820px) {
-    #login.open, #preload.open { grid-template-columns: 1fr; align-content: start; }
-    #login .side, #preload .side { min-height: 0; padding: 14px 16px 0; }
-    #login .logo-side, #preload .logo-side { order: -1; padding: 18px 16px 0; justify-content: flex-start; }
-    #login-art ~ .logo-side, #preload-art ~ .logo-side { display: none; }
-    #login .form-side, #preload .form-side { padding-bottom: 24px; }
+    #login .side, #preload .side { padding: 14px 16px 24px; justify-content: flex-start; }
+    .scene .pair { opacity: .35; }
     .wordmark { font-size: 40px; margin: 8px 0 0; }
-    #login-art, #preload-art { position: relative; order: -1; justify-self: center; box-sizing: border-box; width: min(420px, calc(100% - 32px));
-      height: auto; min-width: 0; max-width: none; margin-top: 16px; object-fit: contain; -webkit-mask-image: none; mask-image: none;
-      border-radius: 10px; border: 2px solid var(--edge); box-shadow: 0 0 0 2px var(--navy), 0 10px 28px rgba(0,20,70,.55); }
   }
 </style>
 </head>
 <body>
 <div id="mobile" class="sky" role="alertdialog" aria-modal="true" aria-labelledby="mobile-title" aria-describedby="mobile-text">
   <div class="mwrap">
-    <img class="mlogo" src="art/scene.png" alt="Dragon Ball Z: Tenkaichi Tag Team" onerror="this.remove()">
+    <img class="tlogo" src="art/title.png" alt="Dragon Ball Z: Tenkaichi Tag Team" onerror="this.remove()">
+    <img class="mlogo" src="art/scene.png" alt="" onerror="this.remove()">
     <div class="win">
       <div class="bar"><span class="ball"></span><span id="mobile-title">Fight on a computer!</span></div>
       <div class="body">
@@ -284,8 +319,15 @@
   </div>
 </div>
 <div id="login" class="sky" role="dialog" aria-modal="true" aria-labelledby="login-title">
-  <img id="login-art" src="art/scene.png" alt="Dragon Ball Z: Tenkaichi Tag Team" onerror="this.remove()">
+  <div class="scene" aria-hidden="true">
+    <img class="tsky" src="art/sky.png" alt="" onerror="this.parentNode.remove()">
+    <div class="clouds"></div>
+    <div class="pair l"><img class="big" src="art/vegeta.png" alt=""><img class="kid" src="art/trunks.png" alt=""><img class="balls" src="art/balls1.png" alt=""></div>
+    <div class="pair r"><img class="big" src="art/goku.png" alt=""><img class="kid" src="art/goten.png" alt=""><img class="balls" src="art/balls2.png" alt=""></div>
+  </div>
   <div class="side form-side">
+    <img class="tlogo" src="art/title.png" alt="Dragon Ball Z: Tenkaichi Tag Team" onerror="this.remove()">
+    <div class="wordmark" aria-hidden="true">Tenkaichi Tag Team<small>PSP</small></div>
     <form class="win" id="login-form" novalidate>
       <div class="bar"><span class="ball"></span><span id="login-title">The Budokai Tenkaichi Arrived!</span></div>
       <div class="body">
@@ -294,21 +336,24 @@
         <label class="field">Password<input id="l-pass" type="password" autocomplete="current-password"></label>
         <label class="field new-only">Password again<input id="l-pass2" type="password" autocomplete="new-password"></label>
         <p class="error" id="l-error" role="alert"></p>
-        <div class="actions"><button type="submit" class="go" id="l-submit">Log in &amp; fight!</button>
-          <button type="button" class="guest" id="l-guest">Play without an account</button></div>
+        <div class="actions"><button type="submit" class="go" id="l-submit">Log in &amp; fight!</button></div>
         <p class="tip">Based on the PSP version: Dragon Ball Z: Tenkaichi Tag Team (2010).</p>
       </div>
     </form>
     <div class="leds" aria-live="polite"><span id="led-net">Network play</span><span id="led-hd">HD textures</span></div>
     <p class="fine">A fan-made port: bring your own copy of the game.<br>Not affiliated with Sony.</p>
   </div>
-  <div class="side logo-side">
-    <div class="wordmark" aria-hidden="true">Tenkaichi Tag Team<small>PSP</small></div>
-  </div>
 </div>
 <div id="preload" class="sky" role="dialog" aria-modal="true" aria-labelledby="pre-title">
-  <img id="preload-art" src="art/scene.png" alt="" onerror="this.remove()">
+  <div class="scene" aria-hidden="true">
+    <img class="tsky" src="art/sky.png" alt="" onerror="this.parentNode.remove()">
+    <div class="clouds"></div>
+    <div class="pair l"><img class="big" src="art/vegeta.png" alt=""><img class="kid" src="art/trunks.png" alt=""><img class="balls" src="art/balls1.png" alt=""></div>
+    <div class="pair r"><img class="big" src="art/goku.png" alt=""><img class="kid" src="art/goten.png" alt=""><img class="balls" src="art/balls2.png" alt=""></div>
+  </div>
   <div class="side form-side">
+    <img class="tlogo" src="art/title.png" alt="Dragon Ball Z: Tenkaichi Tag Team" onerror="this.remove()">
+    <div class="wordmark" aria-hidden="true">Tenkaichi Tag Team<small>PSP</small></div>
     <div class="win">
       <div class="bar"><span class="ball"></span><span id="pre-title">Entering the arena…</span></div>
       <div class="body">
@@ -322,9 +367,6 @@
       </div>
     </div>
     <p class="fine">Kept in this browser, so the game never waits for the network.</p>
-  </div>
-  <div class="side logo-side">
-    <div class="wordmark" aria-hidden="true">Tenkaichi Tag Team<small>PSP</small></div>
   </div>
 </div>
 <div id="status">Loading…</div>
@@ -695,7 +737,6 @@ if (!window.dbzMobile) {
       };
       document.getElementById('tab-login').addEventListener('click', () => mode(false));
       document.getElementById('tab-new').addEventListener('click', () => mode(true));
-      document.getElementById('l-guest').addEventListener('click', () => { writeSession({guest: true}); done(null); });
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = nameEl.value.trim(), password = passEl.value;
@@ -725,7 +766,7 @@ if (!window.dbzMobile) {
       dressLogin();
     };
     const saved = readSession();
-    if ((saved && saved.guest) || new URLSearchParams(location.search).get('guest') === '1') return done(null);  // ?guest=1: tests
+    if (new URLSearchParams(location.search).get('guest') === '1') return done(null);  // ?guest=1: tests (no button: every player signs in)
     fetch('account/me', {headers: saved && saved.token ? {'X-DBZ-Session': saved.token} : {}}).then((r) => {
       if (r.ok) return r.json().then((j) => done({name: j.name, token: saved.token}));
       if (r.status === 401) return ask();

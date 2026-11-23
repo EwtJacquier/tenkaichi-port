@@ -178,6 +178,17 @@ def main():
 
     def art(name):
         with art_lock:
+            if name in isoart.PACKED:  # one of the title screen's layers: the pack's picture, or none
+                up = isoart.pack_key_file(textures, isoart.PACKED[name])
+                if up is None or not up.is_file():
+                    raise KeyError(name)
+                hit = art_cache.get(name)
+                if hit and hit[0] == up:
+                    return hit[1], hit[2]
+                w, h, rgba = isoart.qoi(up.read_bytes())
+                info = dict(w=w, h=h, scale=1, sprites={})
+                art_cache[name] = (up, isoart.png(w, h, rgba), info)
+                return art_cache[name][1], info
             if name not in art_orig:
                 art_orig[name] = isoart.original(iso, name)
             w, h, rgba, sprites = art_orig[name]
@@ -219,6 +230,11 @@ def main():
                 art(name)
             except Exception as e:  # noqa: BLE001 (no ISO here, or not this game's)
                 print(f"art: {name}: {e}", flush=True)
+                return
+        for name in getattr(isoart, "PACKED", {}):  # the title screen's layers (a few seconds each)
+            try:
+                art(name)
+            except KeyError:  # no texture pack: the page keeps the disc's pictures
                 return
     if iso.is_file():
         threading.Thread(target=warm, daemon=True).start()
@@ -276,7 +292,7 @@ def main():
                 return
             route = self.path.split("?")[0]
             m = re.fullmatch(r"/art/([a-z0-9_]{1,24})\.(png|json)", route)
-            if m and m.group(1) in isoart.ART:
+            if m and (m.group(1) in isoart.ART or m.group(1) in getattr(isoart, "PACKED", {})):
                 try:
                     png, info = art(m.group(1))
                 except (OSError, KeyError, ValueError):

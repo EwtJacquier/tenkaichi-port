@@ -18,6 +18,22 @@ ART = {  # name -> the disc's file
 CROP = {}
 SHOWN = ('scene', 'logo')  # what the page uses (made when the server starts)
 
+# The title screen's layers, for the page to draw it again sharp: the game's own textures, taken
+# from the texture pack by their keys (its upscaled pictures: only when the pack is installed; the
+# page keeps the disc's pictures without them). Where the game draws each one in its 480x272
+# frame is in web/shell.html (.scene).
+PACKED = {
+    'sky': '6ebec385642918fb',     # the orange sky, 480x272
+    'clouds': 'd1be53c67f680e35',  # four strips of clouds, 64 texels tall, scrolling along the bottom
+    'vegeta': '10f97b476cc8780a',  # 256x256 at (0, 0)
+    'goku': '21571de4cc233831',    # 256x256 at (224, 0)
+    'trunks': '24b2094a60a7fd70',  # 128x256 at (48, 16)
+    'goten': '3f872a1a6618fec1',   # 128x256 at (320, 16)
+    'balls1': '664006054d09d34f',  # the dragon balls around Vegeta and Trunks, 256x256 at (0, 18)
+    'balls2': '22373ef3a6582d9b',  # around Goku and Goten, 256x256 at (224, 18)
+    'title': 'f9c83ce22890161d',   # the logo: DRAGON BALL Z / TENKAICHI / TAG TEAM, 352x160 at (64, 0)
+}
+
 
 # ---- ISO 9660 ----------------------------------------------------------------------------------------
 def iso_file(f, path):
@@ -133,6 +149,58 @@ def original(iso, name):
 def pack_file(pack, w, h, rgba):
     """These pictures are not textures of the game: never in the texture pack."""
     return None
+
+
+def pack_key_file(pack, k):
+    """The texture pack's file for the texture with this key (PACKED), or None."""
+    try:
+        for line in (Path(pack) / 'index.txt').read_text().splitlines():
+            parts = line.split()
+            if len(parts) == 4 and parts[0] == k:
+                return Path(pack) / parts[3]
+    except OSError:
+        pass
+    return None
+
+
+def qoi(d):
+    """(width, height, RGBA bytes) of a QOI picture (the texture pack's)."""
+    if d[:4] != b'qoif':
+        raise ValueError('not a QOI picture')
+    w, h = struct.unpack_from('>II', d, 4)
+    n = w * h
+    out = bytearray(n * 4)
+    index = [b'\0\0\0\0'] * 64
+    r, g, b, a = 0, 0, 0, 255
+    p, i = 14, 0
+    while i < n:
+        c = d[p]
+        p += 1
+        if c == 0xfe:
+            r, g, b = d[p], d[p + 1], d[p + 2]
+            p += 3
+        elif c == 0xff:
+            r, g, b, a = d[p], d[p + 1], d[p + 2], d[p + 3]
+            p += 4
+        elif c >> 6 == 0:
+            r, g, b, a = index[c]
+        elif c >> 6 == 1:
+            r, g, b = (r + (c >> 4 & 3) - 2) & 255, (g + (c >> 2 & 3) - 2) & 255, (b + (c & 3) - 2) & 255
+        elif c >> 6 == 2:
+            dg = (c & 63) - 32
+            c2 = d[p]
+            p += 1
+            r, g, b = (r + dg - 8 + (c2 >> 4)) & 255, (g + dg) & 255, (b + dg - 8 + (c2 & 15)) & 255
+        else:
+            run = (c & 63) + 1
+            out[i * 4:(i + run) * 4] = bytes((r, g, b, a)) * run
+            i += run
+            continue
+        px = bytes((r, g, b, a))
+        index[(r * 3 + g * 5 + b * 7 + a * 11) & 63] = px
+        out[i * 4:i * 4 + 4] = px
+        i += 1
+    return w, h, bytes(out)
 
 
 def picture(w, h, rgba, upscaled=None, crop=None):
