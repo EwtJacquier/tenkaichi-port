@@ -188,6 +188,7 @@ struct Thread {
 	uint32_t wait_bits, wait_mode, wait_out;  // event flag: bits, mode, out ptr; vpl: size, -, out ptr
 	int32_t wait_result;
 	uint32_t exit_status;
+	bool reap;  // it ended with sceKernelExitDeleteThread: deleted once it has switched away
 	uint64_t vblank_target;
 	uint32_t wakeups;  // sceKernelWakeupThread calls not yet slept off
 };
@@ -864,6 +865,12 @@ void kernel_run(void) {
 			main_call_fn = NULL;
 			fn(main_call_arg);
 			coro_switch(&sched_co, &t->co);
+		}
+		if (t->reap && t->status == TS_DORMANT) {  // sceKernelExitDeleteThread: off its stack now
+			rt_free_user(t->stack_addr);
+			obj_free(t->uid);
+			t->uid = 0;
+			t->reap = false;
 		}
 		cur = NULL;
 	}
@@ -2281,8 +2288,10 @@ void hle_sceKernelSysClock2USecWide(CPU *c) {  // (u64 clock in a0:a1, u32 *sec,
 
 // ---- more of the threads -----------------------------------------------------------------------
 void hle_sceKernelExitDeleteThread(CPU *c) {
-	// Its stack and id are kept (the thread is running on them): it ends as a dormant thread nobody
-	// will start again.
+	// The thread is running on its stack and id: the scheduler frees them once it has switched away
+	// (kept, a thread made again and again, as Burnout Legends' decoder thread for each song, used up the
+	// threads and the user memory: after about eleven songs the next one's thread could not be made).
+	cur->reap = true;
 	thread_exit(cur, A0);
 }
 void hle_sceKernelTerminateThread(CPU *c) {
