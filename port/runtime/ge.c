@@ -1202,50 +1202,66 @@ static void texture_sweep(uint32_t addr) {
 	rt_log("texture sweep: %d textures from %08x", (int)count + 1 - first, at + (uint32_t)first * stride);
 }
 
-// A movie frame's HD picture (runtime/psmf.c): drawn instead of the frame the game wrote at addr,
-// from a texture of the picture's own size (the coordinates scaled to it), sent again only when a
-// new frame comes. The game writes its frames into a few buffers in turn and draws an earlier one:
-// one picture (and texture) each.
+// A movie frame's HD picture (runtime/psmf.c; Burnout's runtime/mpeg.c): drawn instead of the frame the game
+// wrote at addr, from a texture of the picture's own size (the coordinates scaled to it), sent again
+// only when a new frame comes. The game writes its frames into a few buffers in turn and draws an
+// earlier one: one picture (and texture) each.
 #define MOVIE_BUFS 4
 static struct {
 	uint32_t addr;
 	const uint32_t *px;
+	bool (*fill)(uintptr_t arg);  // or the picture put into the bound texture by fill(arg) (ge_movie_hd_fill)
+	uintptr_t arg;
 	int w, h, iw, ih;
 	uint32_t seq, sent;
 	GLuint tex;
-	int tw, th;
+	int tw, th;  // the texture's size (0: nothing in it yet)
 } movie_hd[MOVIE_BUFS];
 
-void ge_movie_hd(uint32_t addr, const uint32_t *px, int w, int h, int iw, int ih) {
+static void movie_hd_set(uint32_t addr, const uint32_t *px, bool (*fill)(uintptr_t), uintptr_t arg, int w, int h, int iw, int ih) {
 	int k = 0;
 	while (k < MOVIE_BUFS && movie_hd[k].addr != addr) k++;
-	if (!px) {
-		if (k < MOVIE_BUFS) movie_hd[k].px = NULL, movie_hd[k].addr = 0;
+	if (!px && !fill) {
+		if (k < MOVIE_BUFS) movie_hd[k].px = NULL, movie_hd[k].fill = NULL, movie_hd[k].addr = 0;
 		return;
 	}
 	if (k == MOVIE_BUFS) {  // a new buffer: a free place, else the one written longest ago
 		k = 0;
 		for (int i = 0; i < MOVIE_BUFS; i++)
-			if (!movie_hd[i].px || movie_hd[i].seq < movie_hd[k].seq) k = i;
+			if ((!movie_hd[i].px && !movie_hd[i].fill) || movie_hd[i].seq < movie_hd[k].seq) k = i;
 	}
 	static uint32_t seq;
-	movie_hd[k].addr = addr, movie_hd[k].px = px, movie_hd[k].w = w, movie_hd[k].h = h, movie_hd[k].iw = iw, movie_hd[k].ih = ih;
+	movie_hd[k].addr = addr, movie_hd[k].px = px, movie_hd[k].fill = fill, movie_hd[k].arg = arg;
+	movie_hd[k].w = w, movie_hd[k].h = h, movie_hd[k].iw = iw, movie_hd[k].ih = ih;
 	movie_hd[k].seq = ++seq;
+}
+
+void ge_movie_hd(uint32_t addr, const uint32_t *px, int w, int h, int iw, int ih) { movie_hd_set(addr, px, NULL, 0, w, h, iw, ih); }
+
+// The same, the picture put into its texture by fill(arg) when it is drawn, with the texture bound
+// (false: it couldn't be, the texture keeps what it had): the browser's HD movies, decoded by the
+// page itself (Burnout's runtime/mpeg.c and web/movies.js).
+void ge_movie_hd_fill(uint32_t addr, bool (*fill)(uintptr_t arg), uintptr_t arg, int w, int h, int iw, int ih) {
+	movie_hd_set(addr, NULL, fill, arg, w, h, iw, ih);
 }
 
 static int movie_hd_at(uint32_t addr) {
 	for (int i = 0; i < MOVIE_BUFS; i++)
-		if (movie_hd[i].px && movie_hd[i].addr == addr) return i;
+		if ((movie_hd[i].px || movie_hd[i].fill) && movie_hd[i].addr == addr) return i;
 	return -1;
 }
 
+// 0: no picture in it yet (the game's own frame is drawn)
 static GLuint movie_hd_texture(int k) {
 	typeof(movie_hd[0]) *m = &movie_hd[k];
 	if (!m->tex) glGenTextures(1, &m->tex);
 	if (m->sent != m->seq) {
 		batch_flush();  // queued draws may use the texture about to be filled
 		glBindTexture(GL_TEXTURE_2D, m->tex);
-		if (m->tw != m->w || m->th != m->h) {
+		if (m->fill) {
+			if (m->fill(m->arg)) m->tw = m->w, m->th = m->h;
+		}
+		else if (m->tw != m->w || m->th != m->h) {
 			m->tw = m->w, m->th = m->h;
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m->tw, m->th, 0, GL_RGBA, GL_UNSIGNED_BYTE, m->px);
 		}
@@ -1253,7 +1269,7 @@ static GLuint movie_hd_texture(int k) {
 		gl_invalidate();
 		m->sent = m->seq;
 	}
-	return m->tex;
+	return m->tw ? m->tex : 0;
 }
 
 static GLuint texture_get_(int *tw, int *th, float *uvsx, float *uvsy) {
@@ -1302,8 +1318,8 @@ static GLuint texture_get_(int *tw, int *th, float *uvsx, float *uvsy) {
 		rt_log("movie texture %08x fmt %d %dx%d stride %d swz %d (HD %d)", addr, fmt, w, h, stride, swz, movie_hd_at(addr & 0x0FFFFFFFu));
 	// a movie frame with an HD picture (fmt 8888, as psmf.c writes them)
 	int mk = fmt == 3 ? movie_hd_at(addr & 0x0FFFFFFFu) : -1;
-	if (mk >= 0) {
-		GLuint t = movie_hd_texture(mk);
+	GLuint t = mk >= 0 ? movie_hd_texture(mk) : 0;
+	if (t) {
 		*uvsx = (float)*tw / (float)movie_hd[mk].iw;  // the picture stands for iw x ih texels of the texture
 		*uvsy = (float)*th / (float)movie_hd[mk].ih;
 		tex_scale = (float)movie_hd[mk].w / (float)movie_hd[mk].iw;

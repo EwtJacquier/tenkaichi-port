@@ -3,14 +3,15 @@
 // H.264 and ATRAC3+ decoding. Video frames are written as RGBA8888 into the buffer the game
 // passes to GetVideoData; audio is handed out in 2048-sample stereo blocks. A movie with an HD
 // version in the texture pack (movies/<name>.h264: H.264 at a whole multiple of 480x272, the same
-// frames) has each frame's HD picture decoded too and drawn in its place (ge_movie_hd).
+// frames) has each frame's HD picture drawn in its place (runtime/hdmovie.c). One file for every PSP
+// port, kept in sync by hand (only the line with the ports' own FPS switch differs).
 #include <libavcodec/avcodec.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "hdmovie.h"
 #include "hle.h"
 #include "rt.h"
-#include "texpack.h"
 
 enum { ST_NONE = 0, ST_INIT = 1, ST_STANDBY = 2, ST_PLAYING = 4, ST_FINISHED = 0x200 };
 #define ERR_NO_DATA 0x8061600Cu
@@ -72,20 +73,7 @@ typedef struct {
 	bool skip;  // ends as soon as it starts (rt_psmf_skip_next)
 	bool hide;  // plays black and silent (rt_psmf_hide_next)
 	uint64_t log_us;
-	// the HD version (texture pack: movies/<name>.h264)
-	char hd_name[96];
-	int hd_state;       // texpack_file's (the web fetches it while the movie starts)
-	bool hd_off;        // none, or it stopped decoding
-	uint8_t *hd_es;     // the whole stream (H.264 Annex B), padded
-	size_t hd_n, hd_pos;
-	AVCodecContext *hd_ctx;
-	AVCodecParserContext *hd_parser;
-	AVFrame *hd_frame;
-	uint32_t hd_count;  // HD frames decoded
-	uint32_t *hd_rgba;  // the last HD frame decoded (one of hd_ring)
-	uint32_t *hd_ring[4];  // the last four: the game draws a frame written up to two before (its three buffers in turn)
-	int hd_w, hd_h;
-	uint32_t hd_dst[4];  // its buffers, to tell ge.c when the movie is over
+	HdMovie hd;  // its HD version (texture pack: movies/<name>.h264)
 } Player;
 
 static Player players[4];
@@ -110,21 +98,8 @@ static Player *alloc(uint32_t addr) {
 	return &players[0];
 }
 
-static void hd_close(Player *p) {
-	for (int i = 0; i < 4; i++) {
-		if (p->hd_dst[i]) ge_movie_hd(p->hd_dst[i], NULL, 0, 0, 0, 0);
-		free(p->hd_ring[i]);
-		p->hd_dst[i] = 0, p->hd_ring[i] = NULL;
-	}
-	if (p->hd_ctx) avcodec_free_context(&p->hd_ctx);
-	if (p->hd_parser) av_parser_close(p->hd_parser);
-	if (p->hd_frame) av_frame_free(&p->hd_frame);
-	free(p->hd_es);
-	p->hd_es = NULL, p->hd_rgba = NULL, p->hd_parser = NULL, p->hd_count = 0, p->hd_pos = 0;
-}
-
 static void player_close(Player *p) {
-	hd_close(p);
+	hdmovie_close(&p->hd);
 	if (p->vctx) avcodec_free_context(&p->vctx);
 	if (p->actx) avcodec_free_context(&p->actx);
 	if (p->parser) av_parser_close(p->parser);
@@ -299,8 +274,6 @@ bool rt_psmf_frame_at(uint32_t addr) {
 	return false;
 }
 
-static bool hd_frame_for(Player *p, uint32_t n);
-
 static void write_frame(Player *p, uint32_t dst, int stride) {
 	AVFrame *f = p->vframe;
 	int w = f->width < 480 ? f->width : 480, h = f->height < 272 ? f->height : 272;
@@ -330,85 +303,10 @@ static void write_frame(Player *p, uint32_t dst, int stride) {
 		}
 	}
 	// its HD picture (a whole multiple of the frame's size), drawn in its place
-	if (w > 0 && h > 0 && p->frame_index && hd_frame_for(p, p->frame_index - 1) && p->hd_w % w == 0 && p->hd_w / w == p->hd_h / h) {
+	if (w > 0 && h > 0 && p->frame_index) {
 		uint32_t a = dst & 0x0FFFFFFFu;
-		int k = 0;
-		while (k < 4 && p->hd_dst[k] != a) k++;
-		if (k == 4) {  // a buffer not seen yet
-			k = 0;
-			while (k < 4 && p->hd_dst[k]) k++;
-			if (k < 4) p->hd_dst[k] = a;
-		}
-		ge_movie_hd(a, p->hd_rgba, p->hd_w, p->hd_h, w, h);  // its picture stays in the ring for four frames
+		if (!hdmovie_show(&p->hd, (int)p->frame_index - 1, a, w, h) && hdmovie_forget(&p->hd, a)) ge_movie_hd(a, NULL, 0, 0, 0, 0);
 	}
-}
-
-// The HD frame that goes with the game's frame number n (0-based): decoded on from the last one
-// (a stream that arrived late, on the web, catches up), converted to RGBA. False: none.
-static bool hd_frame_for(Player *p, uint32_t n) {
-	if (p->hd_off) return false;
-	if (!p->hd_es) {
-		uint8_t *d = texpack_file(p->hd_name, &p->hd_n, &p->hd_state);
-		if (!d || !p->hd_n) {  // not there (or no pack; the page's server answers an empty file)
-			free(d);
-			if (p->hd_state != 1 || d) p->hd_off = true;
-			return false;
-		}
-		p->hd_es = realloc(d, p->hd_n + AV_INPUT_BUFFER_PADDING_SIZE);
-		memset(p->hd_es + p->hd_n, 0, AV_INPUT_BUFFER_PADDING_SIZE);
-		AVCodec *vc = avcodec_find_decoder(AV_CODEC_ID_H264);
-		p->hd_ctx = avcodec_alloc_context3(vc);
-		if (avcodec_open2(p->hd_ctx, vc, NULL) < 0) {
-			p->hd_off = true;
-			return false;
-		}
-		p->hd_parser = av_parser_init(AV_CODEC_ID_H264);
-		p->hd_frame = av_frame_alloc();
-		rt_log("psmf: HD version %s (%zu bytes)", p->hd_name, p->hd_n);
-	}
-	bool fresh = false;
-	while (p->hd_count <= n) {
-		uint8_t *out = NULL;
-		int out_size = 0, got = 0;
-		int used = av_parser_parse2(p->hd_parser, p->hd_ctx, &out, &out_size, p->hd_es + p->hd_pos, (int)(p->hd_n - p->hd_pos),
-		                            AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
-		p->hd_pos += (size_t)used;
-		AVPacket pkt;
-		av_init_packet(&pkt);
-		if (out_size > 0) pkt.data = out, pkt.size = out_size;
-		else if (p->hd_pos >= p->hd_n) pkt.data = NULL, pkt.size = 0;  // flush the last ones
-		else continue;
-		if (avcodec_decode_video2(p->hd_ctx, p->hd_frame, &got, &pkt) >= 0 && got) p->hd_count++, fresh = true;
-		else if (!pkt.data) break;  // the stream is over: its last frame stays
-	}
-	if (!p->hd_count) return false;
-	AVFrame *f = p->hd_frame;
-	if (fresh) {
-		if (f->format != AV_PIX_FMT_YUV420P && f->format != AV_PIX_FMT_YUVJ420P) {
-			rt_log("psmf: %s: not 4:2:0 YUV, left out", p->hd_name);
-			p->hd_off = true;
-			return false;
-		}
-		if (p->hd_w != f->width || p->hd_h != f->height) {
-			for (int i = 0; i < 4; i++) free(p->hd_ring[i]), p->hd_ring[i] = NULL;
-			p->hd_w = f->width, p->hd_h = f->height;
-		}
-		uint32_t **slot = &p->hd_ring[p->hd_count % 4];
-		if (!*slot) *slot = malloc((size_t)p->hd_w * p->hd_h * 4);
-		p->hd_rgba = *slot;
-		for (int y = 0; y < p->hd_h; y++) {
-			const uint8_t *Y = f->data[0] + y * f->linesize[0];
-			const uint8_t *U = f->data[1] + (y / 2) * f->linesize[1];
-			const uint8_t *V = f->data[2] + (y / 2) * f->linesize[2];
-			uint32_t *o = p->hd_rgba + (size_t)y * p->hd_w;
-			for (int x = 0; x < p->hd_w; x++) {
-				int c = (Y[x] - 16) * 298, d = U[x / 2] - 128, e = V[x / 2] - 128;
-				o[x] = 0xFF000000u | (uint32_t)clamp8((c + 516 * d + 128) >> 8) << 16 | (uint32_t)clamp8((c - 100 * d - 208 * e + 128) >> 8) << 8 |
-				       clamp8((c + 409 * e + 128) >> 8);
-			}
-		}
-	}
-	return true;
 }
 
 // Playback clock (90 kHz). Audio is the master, as on the PSP: once the game fetches audio, the
@@ -484,15 +382,12 @@ void hle_scePsmfPlayerSetPsmf(CPU *c) {
 		return;
 	}
 	p->state = ST_STANDBY;
-	{  // its HD version's name: movies/<the file's name without .pmf>.h264
+	{  // its HD version: movies/<the file's name without .pmf>.h264
 		const char *b = strrchr(path, '/');
 		b = b ? b + 1 : path;
-		int n = (int)strcspn(b, ".");
-		snprintf(p->hd_name, sizeof p->hd_name, "movies/%.*s.h264", n, b);
-		p->hd_state = 0, p->hd_off = false;
-		size_t dummy;
-		uint8_t *d = texpack_file(p->hd_name, &dummy, &p->hd_state);  // the web starts fetching it now
-		free(d);
+		char name[64];
+		snprintf(name, sizeof name, "%.*s", (int)strcspn(b, "."), b);
+		hdmovie_init(&p->hd, name);
 	}
 	p->skip = skip_next;
 	p->hide = hide_next;

@@ -55,7 +55,7 @@ WEB_LDFLAGS = --emit-symbol-map -O2 -msimd128 -sASYNCIFY -sINITIAL_MEMORY=512MB 
 	-sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=2 -sFULL_ES3 -lidbfs.js -sFORCE_FILESYSTEM -sINVOKE_RUN=0 \
 	-sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV,IDBFS,addRunDependency,removeRunDependency \
 	-sEXPORTED_FUNCTIONS=_main --preload-file generated/image.bin@/image.bin $(WEB_EXTRA_FILES) \
-	--pre-js web/audio.js --pre-js web/net.js $(WEB_PROF)
+	--pre-js web/audio.js --pre-js web/net.js --pre-js web/hdmovie.js $(WEB_PROF)
 # make web WEB_PROF=--profiling-funcs: function names in the wasm (for the browser's profiler)
 WEB_EXTRA_FILES = $(if $(wildcard assets/fonts/*),--preload-file assets/fonts@/assets/fonts) \
 	$(if $(wildcard generated/ui_text.spec),--preload-file generated/ui_text.spec@/generated/ui_text.spec)
@@ -75,7 +75,7 @@ build/web/%.webp: web/%.webp | build/web
 build/web/index.html: web/shell.html | build/web
 	sed 's|{{{ SCRIPT }}}|<script async src="index.js"></script>|' $< > $@
 
-build/web/index.js: $(WGEN_OBJ) $(WRT_OBJ) $(WMOD_OBJ) web/audio.js web/net.js $(WEB_EXTRA_DEPS) | build/web
+build/web/index.js: $(WGEN_OBJ) $(WRT_OBJ) $(WMOD_OBJ) web/audio.js web/net.js web/hdmovie.js $(WEB_EXTRA_DEPS) | build/web
 	$(EMCC) -o $@ $(WGEN_OBJ) $(WRT_OBJ) $(WMOD_OBJ) $(WEB_LIBS) $(WEB_LDFLAGS)
 
 build/wgen/%.o: generated/%.c generated/funcs.h runtime/cpu.h | build/wgen
