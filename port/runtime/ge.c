@@ -30,6 +30,7 @@
 #define GE_BLEND_DOUBLE_ALPHA 1  // the double-alpha blend factors double the alpha (1) or the source color (0)
 #define GE_TILES_PACK_KEY 0      // DBZ_TILES lines name the texture pack's key and picture size (1) or the catalog's (0)
 #define GE_TEXCAT_WHERE 1        // DBZ_TEXCATALOG lines "key w h fmt addr where frame stride" (1) or "... scene frame" (0)
+#define GE_COPY_TO_VRAM 1        // a framebuffer copied into another on the GPU is also read back into VRAM (1), or not (0)
 
 // ---------------------------------------------------------------------------------------------
 // State
@@ -2100,7 +2101,10 @@ static void transform(const VFmt *f, const RawVert *rv, GVert *o) {
 	if (f->through) {
 		o->x = rv->pos[0] / x->fbw * 2.f - 1.f;
 		o->y = rv->pos[1] / x->fbh * 2.f - 1.f;
-		o->z = rv->pos[2] / 65535.f * 2.f - 1.f;
+		// a hair inside the near and far planes: on them, a depth test against the 3D drawn there (a sky
+		// with a depth scale of 0) went either way (Burnout's sun: its occlusion test failed over open sky)
+		const float in = 1.f - 1.f / 65536.f;
+		o->z = fminf(fmaxf(rv->pos[2] / 65535.f * 2.f - 1.f, -in), in);
 		o->w = 1.f;
 		o->u = x->tw ? rv->uv[0] / (float)x->tw : 0;
 		o->v = x->th ? rv->uv[1] / (float)x->th : 0;
@@ -2705,7 +2709,10 @@ static void draw_prim(uint32_t data) {
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 		}
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, cur_fbo->fbo);
-		glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, w, h);
+		// only what the texture covers (a bloom reads a quarter of the screen: 20 whole copies a
+		// frame were 40% of Burnout's GPU time)
+		glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, (tw < cur_fbo->width ? tw : cur_fbo->width) * rs,
+		                    (th < cur_fbo->height ? th : cur_fbo->height) * rs);
 		gl_invalidate();
 		tex = snap;
 	}
@@ -3072,20 +3079,24 @@ static void draw_prim(uint32_t data) {
 // Block transfer
 // ---------------------------------------------------------------------------------------------
 // Framebuffer that contains a VRAM address (32-bit framebuffers only), with the pixel position.
+// Of several, the one starting nearest below it: a copy target inside a big one's extent (Burnout's
+// sun saves its box to a 64-wide target that a 512x272 one's extent covers; taken for that one, the
+// save went through a readback and came back at 1x).
 static Fbo *fbo_containing(uint32_t addr, int *px, int *py) {
 	if ((addr & 0x0FE00000u) != PSP_VRAM_BASE) return NULL;
 	uint32_t off = addr & 0x001FFFFFu;
+	Fbo *best = NULL;
 	for (int i = 0; i < MAX_FBOS; i++) {
 		Fbo *f = &fbos[i];
 		uint32_t size = (uint32_t)(f->width * f->height * 4);
-		if (f->used && f->last_draw && off >= f->addr && off < f->addr + size) {
-			uint32_t pix = (off - f->addr) / 4;
-			*px = (int)(pix % (uint32_t)f->width);
-			*py = (int)(pix / (uint32_t)f->width);
-			return f;
-		}
+		if (f->used && f->last_draw && off >= f->addr && off < f->addr + size && (!best || f->addr > best->addr)) best = f;
 	}
-	return NULL;
+	if (best) {
+		uint32_t pix = (off - best->addr) / 4;
+		*px = (int)(pix % (uint32_t)best->width);
+		*py = (int)(pix / (uint32_t)best->width);
+	}
+	return best;
 }
 
 // A framebuffer region copied to VRAM at dst (its pixels already there): kept at full resolution
@@ -3149,10 +3160,11 @@ static void block_transfer(uint32_t data) {
 			}
 			df->last_draw = ++draw_counter;
 			// Keep VRAM in step (the picture may later be read as a texture from memory, e.g.
-			// after the target is evicted) and, when the copy lands inside a larger framebuffer
-			// rather than at its start, keep it at full resolution at its own address too.
+			// after the target is evicted; GE_COPY_TO_VRAM: a readback stalls the GPU, in the
+			// browser most of all) and, when the copy lands inside a larger framebuffer rather than
+			// at its start, keep it at full resolution at its own address too.
 			uint32_t d0 = dst + (uint32_t)((dy * dstride + dx) * 4);
-			if (rt_valid(d0, (uint32_t)(((h - 1) * dstride + w) * 4))) fb_read(df->fbo, ox, oy, w, h, MP(d0), dstride);
+			if (GE_COPY_TO_VRAM && rt_valid(d0, (uint32_t)(((h - 1) * dstride + w) * 4))) fb_read(df->fbo, ox, oy, w, h, MP(d0), dstride);
 			if (df->copy) df->copy_hash = copy_hash(df);
 			if ((dst & 0x001FFFFFu) != df->addr && dx == 0 && dy == 0 && (dst & 0x0FE00000u) == PSP_VRAM_BASE &&
 			    dstride >= w && dstride <= 1024 && h <= 512)
